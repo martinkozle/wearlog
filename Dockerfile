@@ -1,7 +1,7 @@
 FROM python:3.12-alpine
 WORKDIR /app
-COPY server.py .
-COPY web ./web
+COPY --chown=10001:10001 server.py .
+COPY --chown=10001:10001 web ./web
 RUN adduser -D -u 10001 wearlog && mkdir /data && chown wearlog /data
 USER wearlog
 ENV WEARLOG_DB=/data/wearlog.sqlite3 PORT=8080 PYTHONUNBUFFERED=1
