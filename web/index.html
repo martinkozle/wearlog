@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f6f4ed"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icon.png"><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css"><title>Wearlog · A little less to remember</title></head>
+<body><header><a class="brand" href="/">wearlog<span>✳</span></a><button id="settings" class="quiet">Settings</button></header>
+<main><div class="intro"><div><p class="eyebrow">A LITTLE LESS TO REMEMBER</p><h1>Your everyday<br>wardrobe, remembered.</h1><p class="sub">Wear it. Log it. Give it a fresh start.</p></div><div class="intro-mark" aria-hidden="true">✳</div></div>
+<div class="toolbar"><div><h2>In your wardrobe <span id="total"></span></h2><p id="status" role="status">Opening your wardrobe…</p></div><button id="sync" class="quiet">↻ Sync</button></div>
+<div class="actions"><label class="filter">Wash group <select id="filter"><option value="">All groups</option></select></label><div><button id="wash" class="secondary">Wash a load</button><button id="add" class="primary">+ Add garment</button></div></div>
+<section id="grid" class="grid" aria-label="Garments"></section><footer>Made for another wear. <span>Your wardrobe, at your pace.</span></footer></main>
+<dialog id="dialog"><form id="form"><div class="dialog-head"><h2 id="dialog-title"></h2><button type="button" id="close" class="quiet" aria-label="Close dialog">✕</button></div><div id="dialog-content"></div><div id="dialog-actions"></div><p id="form-error" role="alert"></p></form></dialog>
+<div id="toast" role="status" hidden></div><script type="module" src="/app.js"></script></body></html>
