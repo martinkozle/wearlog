@@ -1,69 +1,91 @@
 # Wearlog
 
-A small, self-hosted wardrobe tracker. Photo first, no wear limits, no Immich dependency. A mobile PWA backed by SQLite with no runtime Python or JavaScript dependencies.
+Wearlog helps you remember how many times you've worn your clothes since washing them. Add a photo of each garment, tap **+1 Wear now** when you put it on, and record a wash when it's ready for a fresh start.
 
-- Upload a garment photo, drag and zoom to crop, and choose a wash group. Name optional.
-- **+1 Wear now** records today's wear and the time you tapped it.
-- Open a garment for history, past wears in batches, optional wear dates, and undo.
-- **Wash a load** preselects worn garments in the current group. Exclude anything elsewhere.
-- Works offline after first loading online. Photos, records, and pending changes live in IndexedDB on your phone. Reopen at home or on VPN to sync. No background sync guarantee on iOS.
-- Export and merge JSON backups in Settings.
+It's a self-hosted web app you can install on your phone. Log wears offline, then reopen the app at home or on your VPN to sync with your server.
 
-## Run on your server
+## Everyday use
+
+- **Add a garment:** choose a photo, drag and zoom to crop it, and assign a wash group. You can give it a name too.
+- **Log a wear:** tap **+1 Wear now** to record today's wear and the time you logged it.
+- **Catch up:** open a garment to add several past wears, with an optional wear date.
+- **Check history:** see previous entries and undo mistakes.
+- **Wash a load:** select a group to preselect its worn garments, then untick anything you're leaving out.
+
+Wearlog shows the current wear count so you can decide when each garment needs washing. Photos are saved as cropped 640×640 JPEGs.
+
+## Install on your server
+
+Requires Docker with Compose:
 
 ```sh
-git clone https://github.com/martinkozle/laundry-tracker-immich.git
-cd laundry-tracker-immich
+git clone https://github.com/martinkozle/wearlog.git
+cd wearlog
 docker compose up -d --build
 ```
 
-Proxy a stable **HTTPS** hostname to `127.0.0.1:8080`. Keep access on your LAN/VPN as planned. Preserve the original `Host` header; POST requests check `Origin` against it. Mount at the hostname root (subpath deployment is not supported). If your proxy runs in Docker, put it and Wearlog on a shared network and proxy to `wearlog:8080`, or configure the published binding for your setup. The default binding only accepts connections on the server's loopback interface.
+The app listens at `127.0.0.1:8080`. Configure your reverse proxy to serve it at the root of a stable **HTTPS** hostname, and preserve the original `Host` header. If your proxy also runs in Docker, connect both services to a shared network and proxy to `wearlog:8080`.
 
-On iPhone, open the HTTPS URL in Safari, use Share → Add to Home Screen, then open the installed app once while connected. Add a garment and check that Sync reports success before relying on offline use. HTTP over a LAN IP does **not** provide the service-worker support needed for offline installation. Localhost HTTP is fine for development.
-
-### Optional access token
-
-By default, this is a trusted LAN/VPN application with **no authentication**. Anyone who can reach the API can read and write the wardrobe. For shared networks, configure a long random token in a server-side `.env` file:
+Wearlog is designed for a personal wardrobe accessed over a trusted LAN or VPN. By default, anyone who can reach the API can read and update it. To require an access token, create a `.env` file:
 
 ```dotenv
 WEARLOG_TOKEN=replace-with-a-long-random-secret
 ```
 
-Restart with `docker compose up -d`, then enter that token in the PWA's Settings. It is saved on that device and sent as a Bearer token over HTTPS. Health checks and the empty app shell remain public; wardrobe API access requires the token. This is single-user access control, not an account system. Do not commit `.env`, personal photos, or database files to this public repository.
+Apply the setting with `docker compose up -d`, then enter the token in the app's **Settings** on each device. Keep `.env` private.
 
-### Without Docker
+### Install on iPhone
 
-Requires Python 3.12+:
+Open your HTTPS address in Safari and choose **Share → Add to Home Screen**. Open the installed app while connected and wait for **All changes synced** before using it offline.
+
+The app keeps photos and pending entries in IndexedDB, the browser's local database. Sync runs when you open or return to the app, when connectivity returns while it's open, or when you tap **Sync**. On iPhone, reopen the app at home or on your VPN to sync pending changes.
+
+HTTPS is required for offline support on your phone. For local development, `http://localhost:8080` also works.
+
+### Run with Python
+
+Requires Python 3.12+ and uses the standard library:
 
 ```sh
 python server.py
 ```
 
-Open `http://localhost:8080`. Environment: `PORT` (8080), `WEARLOG_DB` (`data/wearlog.sqlite3`), `WEARLOG_TOKEN` (optional).
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `8080` | HTTP port |
+| `WEARLOG_DB` | `data/wearlog.sqlite3` | SQLite database path |
+| `WEARLOG_TOKEN` | Empty | Optional API access token |
 
-## Backups and updates
+## Backups
 
-The Docker volume `wardrobe` holds `/data/wearlog.sqlite3` and its SQLite WAL files; images are stored within records in the database. Use a SQLite online backup, or stop the container before copying the entire volume. Back up the volume regularly. Settings → Export provides a portable copy of all records and photos currently on the phone, including unsynced changes. Import merges by stable IDs rather than replacing the wardrobe.
+The Docker volume `wardrobe` contains the SQLite database, including garment photos and history. Back it up regularly using SQLite's online backup facility, or stop the service before copying the entire volume, including its WAL files.
 
-Browser storage is not a permanent backup: clearing website data or browser storage eviction can remove unsynced changes. On another phone, use the same server URL (and token if configured), then Sync. Uninstalling/reinstalling is not a supported backup strategy.
+In the app, **Settings → Export wardrobe backup** saves a portable JSON copy, including pending entries on that phone. Importing a backup merges entries by their identifiers.
 
-To update: `git pull` then `docker compose up -d --build`. The service worker caches a versioned app shell; future frontend changes must bump `CACHE` in `web/sw.js`. After a new worker downloads, close all app windows and reopen to activate it. Do not clear website storage to update.
+Keep a backup of unsynced entries: clearing browser data or browser storage eviction can remove the phone's local copy. To use another phone, open the same server address, enter the token if configured, and sync.
 
-## API and sync model
+## Updates
 
-See [API.md](API.md). Records are immutable, uniquely identified events. SQLite inserts a batch transactionally; retries with identical IDs and content are harmless. The client persists its records and outbox together before showing a successful action. On successful sync it atomically merges server records with any newer pending local records, and removes only acknowledged outbox entries.
+```sh
+git pull
+docker compose up -d --build
+```
 
-A wash explicitly references the wear event IDs visible when recorded. It does not blindly set a counter to zero on arrival: a previously unseen wear from another offline device survives. Unknown-date past wears are applied to the current wash cycle unless subsequently washed; choosing an old date does not retroactively change past wash membership. Counts are derived from active, unwashed wear events. Undo is permanent reversal of an event; undoing a wash restores its referenced wears (unless another active wash covers them). Undo for a load reverses the whole load, including from garment history.
+After the updated app shell downloads, close all Wearlog windows and reopen it to activate the update. Keep browser data intact to preserve pending entries.
 
-For this pilot, garments cannot be edited or archived after creation; there is no image recognition, analytics, multi-user account system, or Immich integration. Photos are cropped to 640×640 JPEGs; originals are not retained. All history and photos are returned on each sync, suitable for a personal wardrobe. Pagination, photo deduplication, garment editing, and retention can follow if needed.
+## API and development
 
-## Development checks
+The backend stores an immutable event log in SQLite. Stable event identifiers make sync retries safe. Each wash references the wear entries selected for that load, so a delayed offline entry remains available for the next wash. Past wears count toward the current wash cycle; an optional date describes when they happened. Undoing a wash from history reverses the whole load.
+
+See [API.md](API.md) for record formats, authentication, and sync behavior. The frontend uses native browser modules and runs directly from `web/`.
+
+Run the checks:
 
 ```sh
 python -m unittest discover -s tests -v
 npm test
 ```
 
-Optional browser smoke check: install Playwright for Python and Chromium, then run `python tests/browser_check.py` (uses `/usr/bin/chromium` and a temporary database). It covers photo upload, offline reload, past wears, washing, undo, synchronization, and a second browser session.
+For the browser smoke test, install Playwright for Python and Chromium at `/usr/bin/chromium`, then run `python tests/browser_check.py`. It starts a temporary server and checks photo upload, offline reload, wear logging, washing, undo, and sync across browser sessions.
 
-No build step or npm install is needed for the app. The backend uses Python's standard HTTP server; this is a small trusted-network pilot behind a reverse proxy, rather than a public multi-tenant service.
+When changing the frontend, bump `CACHE` in `web/sw.js` so installed apps download the updated shell.
