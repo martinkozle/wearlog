@@ -7,6 +7,7 @@ export default defineConfig(({mode}) => ({
     compatibilityDate: '2026-11-18',
     workersDev: true,
     previewUrls: false,
+    domains: process.env.WEARLOG_HOSTNAME ? [process.env.WEARLOG_HOSTNAME] : undefined,
     assets: {runWorkerFirst: ['/api/*','/auth/*']},
     env: {
       DB: bindings.d1({name:'wearlog',id:mode==='development'?'00000000-0000-4000-8000-000000000001':process.env.WEARLOG_D1_ID}),

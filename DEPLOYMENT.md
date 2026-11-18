@@ -7,7 +7,7 @@ Wearlog uses a Worker with Static Assets, one D1 database, one private R2 Standa
 1. Enable Workers, R2, and Cloudflare Zero Trust on your account. R2 activation includes a billing subscription with free usage allowances.
 2. Create a D1 database named `wearlog` and an R2 bucket named `wearlog-photos`. Keep R2 public access disabled.
 3. Create a reusable Access Allow policy limited to your email. Attach it to an Access application protecting the app hostname. Select your existing identity provider or configure email one-time PIN. Set a suitable session duration, such as seven days.
-4. Copy `.env.example` to `.env` and fill in the account ID, D1 ID, bucket name, Access team issuer, and application audience. These identify resources; the deployment API token is supplied separately as `CLOUDFLARE_API_TOKEN`, or use `npx cf auth login` interactively.
+4. Copy `.env.example` to `.env` and fill in the account ID, D1 ID, bucket name, Access team issuer, and application audience. Set `WEARLOG_HOSTNAME` to your custom hostname, such as `wearlog.example.com`, to include it in future deployments. These identify resources; the deployment API token is supplied separately as `CLOUDFLARE_API_TOKEN`, or use `npx cf auth login` interactively.
 5. Apply the database migrations and deploy:
 
 ```sh
@@ -30,6 +30,7 @@ Configure these repository or environment variables:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `WEARLOG_D1_ID`
+- `WEARLOG_HOSTNAME` (custom hostname)
 - `WEARLOG_R2_BUCKET`
 - `WEARLOG_ACCESS_ISSUER`
 - `WEARLOG_ACCESS_AUD`
