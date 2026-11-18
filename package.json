@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run db:local && cf dev",
-    "build": "cf build",
+    "dev": "node scripts/version-assets.mjs && npm run db:local && cf dev",
+    "build": "node scripts/version-assets.mjs && cf build",
     "deploy": "cf deploy",
     "types": "cf workers types",
     "test": "node --test tests/model.test.js tests/worker.test.js",
     "test:browser": "python tests/browser_check.py",
     "db:local": "cf d1 migrations apply 00000000-0000-4000-8000-000000000001 --local --mode development --dir migrations",
-    "screenshots": "python scripts/screenshots.py"
+    "screenshots": "python scripts/screenshots.py",
+    "test:updates": "python tests/update_check.py"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "2.0.0-rc.1",

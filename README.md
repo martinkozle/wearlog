@@ -80,6 +80,8 @@ See [API.md](API.md). Wearlog stores immutable events with stable identifiers so
 
 Photos upload separately from records. Sync uses a server cursor to fetch new events in pages, and pending entries are removed only after acknowledgment and a successful local save.
 
-For frontend releases, bump `CACHE` in `web/sw.js`. After the new shell downloads, close every Wearlog window and reopen to activate it while preserving local entries.
+Use **Settings → Update & reload** to download the current app without clearing garments or pending entries. The installed app version is shown in Settings. If an older cached interface is stuck, open `/update` on the same hostname for the recovery page.
+
+For frontend releases, bump `web/version.json`. The build versions the HTML, module imports, and offline shell together. New workers activate once their files download, and the app shows an update action while preserving unfinished forms.
 
 To refresh the README screenshots using a temporary local demo wardrobe, run `python scripts/screenshots.py` after building. Photo sources and requirements are in [the image credits](docs/images/CREDITS.md).
