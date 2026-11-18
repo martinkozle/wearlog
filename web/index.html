@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="app-version" content="2026.11.18.6">
+  <meta name="app-version" content="2026.11.18.7">
   <meta name="theme-color" content="#f7f8fa">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=2026.11.18.6">
+  <link rel="stylesheet" href="/style.css?v=2026.11.18.7">
   <title>Wearlog</title>
 <!-- Settings icon from Lucide.
 ISC License
@@ -31,7 +31,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="/">Wearlog</a>
+    <div class="header-brand">
+      <button id="open-wardrobes" class="icon-button" aria-label="Open wardrobes" aria-haspopup="dialog" aria-controls="wardrobe-menu" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <span class="brand">Wearlog</span>
+    </div>
     <div class="header-tools">
       <span id="status" class="save-status" role="status" data-state="loading">Opening…</span>
       <button id="signin" class="secondary" hidden>Sign in to sync</button>
@@ -54,11 +59,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
   </header>
   <div id="app-update" class="update-notice" role="status" hidden><span>App update available</span><button id="install-update" class="secondary">Update &amp; reload</button></div>
   <main>
-    <section id="wardrobe-bar" class="wardrobe-bar" aria-label="Wardrobes" hidden>
-      <select id="wardrobe-select" aria-label="Active wardrobe"></select>
-      <button id="manage-wardrobe" class="secondary">Manage</button>
-      <button id="create-wardrobe" class="secondary">New wardrobe</button>
-    </section>
     <section id="onboarding" class="empty" hidden>
       <h1>Create your first wardrobe</h1>
       <p>Give your wardrobe a name. You can share it later.</p>
@@ -70,6 +70,17 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <section id="grid" class="grid" aria-label="Garments"></section>
     </section>
   </main>
+  <dialog id="wardrobe-menu" aria-labelledby="wardrobe-menu-title">
+    <div class="dialog-head"><h2 id="wardrobe-menu-title">Wardrobes</h2><button type="button" id="close-wardrobes" class="icon-button" aria-label="Close wardrobes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="wardrobe-menu-content">
+      <div id="wardrobe-list"></div>
+      <div class="wardrobe-menu-actions">
+        <button id="manage-wardrobe" class="secondary">Manage current wardrobe</button>
+        <button id="create-wardrobe" class="secondary">New wardrobe</button>
+        <button id="enter-invite" class="secondary">Join with an invite</button>
+      </div>
+    </div>
+  </dialog>
   <dialog id="dialog">
     <form id="form">
       <div class="dialog-head"><h2 id="dialog-title"></h2><button type="button" id="close" class="icon-button" aria-label="Close dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
@@ -79,6 +90,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     </form>
   </dialog>
   <div id="toast" role="status" hidden></div>
-  <script type="module" src="/app.js?v=2026.11.18.6"></script>
+  <script type="module" src="/app.js?v=2026.11.18.7"></script>
 </body>
 </html>

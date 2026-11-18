@@ -1,6 +1,7 @@
-import {createUpdater} from './updates.js?v=2026.11.18.6';
-import {project} from './model.js?v=2026.11.18.6';
-import {validateRecord, photoHash} from './schema.js?v=2026.11.18.6';
+import qrcode from './qrcode.js?v=2026.11.18.7';
+import {createUpdater} from './updates.js?v=2026.11.18.7';
+import {project} from './model.js?v=2026.11.18.7';
+import {validateRecord, photoHash} from './schema.js?v=2026.11.18.7';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = s => new Date(s).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -111,17 +112,26 @@ function render() {
  const active = profile?.wardrobes.find(wardrobe => wardrobe.id === activeId);
  $('wardrobe-content').hidden = !active;
  $('onboarding').hidden = !profile || Boolean(active);
- $('wardrobe-bar').hidden = !active;
- for (const id of ['wardrobe-select', 'manage-wardrobe', 'create-wardrobe', 'first-wardrobe']) $(id).disabled = switching;
+ $('open-wardrobes').disabled = !profile || switching;
+ $('first-wardrobe').disabled = switching;
+ $('manage-wardrobe').hidden = !active;
+ const list = $('wardrobe-list');
+ const menuKey = JSON.stringify([profile?.wardrobes, activeId]);
+ if (list.dataset.key !== menuKey) {
+  list.replaceChildren(...(profile?.wardrobes || []).map(({id, name}) => {
+   const button = document.createElement('button');
+   button.type = 'button';
+   button.className = 'wardrobe-option';
+   button.textContent = name;
+   button.dataset.wardrobe = id;
+   if (id === activeId) button.setAttribute('aria-current', 'true');
+   button.onclick = () => void selectWardrobe(id);
+   return button;
+  }));
+  list.dataset.key = menuKey;
+ }
  if (!active) return;
  $('wardrobe-title').textContent = active.name;
- const options = JSON.stringify(profile.wardrobes);
- const select = $('wardrobe-select');
- if (select.dataset.options !== options) {
-  select.replaceChildren(...profile.wardrobes.map(wardrobe => new Option(wardrobe.name, wardrobe.id)));
-  select.dataset.options = options;
- }
- select.value = activeId;
  const garments=project(state.records);
  let filter=$('filter').value;
  const groups=[...new Set(garments.map(g=>g.group))].sort();
@@ -188,6 +198,7 @@ async function setActive(nextProfile, id) {
   if (key !== scope || profile?.account !== nextProfile.account) {
    const saved = key ? await load(key) : null;
    if ($('dialog').open) $('dialog').close();
+   if ($('wardrobe-menu').open) $('wardrobe-menu').close();
    $('toast').hidden = true;
    state = saved || blankState();
    scope = key;
@@ -447,26 +458,49 @@ function clearInvite() {
  url.searchParams.delete('invite');
  history.replaceState(null, '', url);
 }
+async function previewInvite(token) {
+ const account = profile.account;
+ const invite = await api('/api/invites?token=' + encodeURIComponent(token), {account});
+ if (account !== profile?.account) throw new Error('Your sign-in changed. Try the invite again.');
+ return {invite, account};
+}
+async function confirmInvite(token, {invite, account}, fromLink = false) {
+ if (invite.joined) {
+  if (fromLink) clearInvite();
+  await openWardrobe(invite);
+  return;
+ }
+ dialog(`Join ${invite.name}?`, '<p class="hint">Everyone in this wardrobe can add and delete garments, log wears and washes, and invite others.</p>',
+  saveButton('Join wardrobe'), async () => {
+   const joined = await api('/api/invites', {account, body: {token}});
+   if (fromLink) clearInvite();
+   await openWardrobe(joined);
+  });
+ if (fromLink) $('dialog').onclose = clearInvite;
+}
+function enterInvite() {
+ dialog('Join with an invite', '<label>Invite link or code<input id="invite-entry" type="text" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>',
+  saveButton('Continue'), async () => {
+   const input = $('invite-entry');
+   const value = input.value.trim();
+   let token = value;
+   try { token = new URL(value).searchParams.get('invite'); } catch {}
+   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(token || '')) throw new Error('Paste a Wearlog invite link or code.');
+   token = token.toLowerCase();
+   const preview = await previewInvite(token);
+   if (!$('dialog').open || !input.isConnected) return;
+   $('dialog').close();
+   await confirmInvite(token, preview);
+  });
+}
 async function showInvite() {
  const token = inviteToken();
- if (!token || inviteInProgress || $('dialog').open) return;
+ if (!token || inviteInProgress || $('dialog').open || $('wardrobe-menu').open) return;
  inviteInProgress = true;
- const account = profile.account;
  try {
-  const invite = await api('/api/invites?token=' + encodeURIComponent(token), {account});
-  if ($('dialog').open || account !== profile.account || token !== inviteToken()) return;
-  if (invite.joined) {
-   clearInvite();
-   await openWardrobe(invite);
-   return;
-  }
-  dialog(`Join ${invite.name}?`, '<p class="hint">Everyone in this wardrobe can add and delete garments, log wears and washes, and invite others.</p>',
-   saveButton('Join wardrobe'), async () => {
-    const joined = await api('/api/invites', {account, body: {token}});
-    clearInvite();
-    await openWardrobe(joined);
-   });
-  $('dialog').onclose = clearInvite;
+  const preview = await previewInvite(token);
+  if ($('dialog').open || $('wardrobe-menu').open || token !== inviteToken()) return;
+  await confirmInvite(token, preview, true);
  } catch (error) {
   if (error.status !== 404) throw error;
   clearInvite();
@@ -474,6 +508,12 @@ async function showInvite() {
  } finally {
   inviteInProgress = false;
  }
+}
+function inviteQr(url) {
+ const qr = qrcode(0, 'M');
+ qr.addData(url);
+ qr.make();
+ return qr.createDataURL(5, 20);
 }
 async function manageWardrobe() {
  const id = activeId;
@@ -485,32 +525,45 @@ async function manageWardrobe() {
   if (scope !== key || $('dialog').open) return;
   const name = profile.wardrobes.find(wardrobe => wardrobe.id === id).name;
   dialog(name,
-   `<ul class="history">${members.map(member => `<li>${esc(member.name)}${member.you ? ' (you)' : ''}</li>`).join('')}</ul>
-    <label id="invite-result" hidden>Invite link<input id="invite-link" readonly></label>
-    <p id="invite-status" class="hint" role="status"></p>`,
-   '<button type="button" id="copy-invite" class="primary">Copy invite link</button><button type="button" id="leave-wardrobe" class="danger">Leave wardrobe</button>',
+   `<ul class="history">${members.map(member => `<li>${esc(member.email ?? member.name)}${member.you ? ' (you)' : ''}</li>`).join('')}</ul>
+    <section id="invite-result" hidden>
+     <img id="invite-qr" class="invite-qr" alt="QR code for this wardrobe invite">
+     <label>Invite link<input id="invite-link" readonly></label>
+     <label>Invite code<input id="invite-code" readonly></label>
+     <p class="hint">To join in the installed app, open Wardrobes and choose Join with an invite.</p>
+     <button type="button" id="copy-invite" class="secondary">Copy invite link</button>
+     <p id="invite-status" class="hint" role="status"></p>
+    </section>`,
+   '<button type="button" id="share-wardrobe" class="primary">Share invite</button><button type="button" id="leave-wardrobe" class="danger">Leave wardrobe</button>',
    async () => {});
-  $('copy-invite').onclick = async () => {
-   const button = $('copy-invite');
+  $('share-wardrobe').onclick = async () => {
+   const button = $('share-wardrobe');
    button.disabled = true;
    try {
     const {token} = await api(path + '/invite', {account, body: {}});
-    if (!button.isConnected) return;
+    if (!button.isConnected || !$('dialog').open) return;
     const link = new URL('/', location.origin);
     link.searchParams.set('invite', token);
-    $('invite-result').hidden = false;
+    $('invite-qr').src = inviteQr(link.href);
     $('invite-link').value = link.href;
-    try {
-     await navigator.clipboard.writeText(link.href);
-     $('invite-status').textContent = 'Link copied. It works once and expires in seven days.';
-    } catch {
-     $('invite-link').select();
-     $('invite-status').textContent = 'Copy the selected link. It works once and expires in seven days.';
-    }
+    $('invite-code').value = token;
+    $('invite-result').hidden = false;
+    $('invite-status').textContent = 'This invite works once and expires in seven days.';
+    button.textContent = 'New invite';
    } catch (error) {
     if (button.isConnected) $('form-error').textContent = error.message;
    } finally {
     button.disabled = false;
+   }
+  };
+  $('copy-invite').onclick = async () => {
+   const input = $('invite-link');
+   try {
+    await navigator.clipboard.writeText(input.value);
+    if (input.isConnected) $('invite-status').textContent = 'Link copied.';
+   } catch {
+    input.select();
+    if (input.isConnected) $('invite-status').textContent = 'Copy the selected link.';
    }
   };
   $('leave-wardrobe').onclick = () => {
@@ -546,8 +599,9 @@ function confirmLeave(path, account, id, name, last, key) {
    void sync();
   });
 }
-$('wardrobe-select').onchange = async event => {
- const id = event.target.value;
+async function selectWardrobe(id) {
+ $('wardrobe-menu').close();
+ if (id === activeId) return;
  const account = profile.account;
  switching = true;
  render();
@@ -561,9 +615,36 @@ $('wardrobe-select').onchange = async event => {
   render();
   void sync();
  }
+}
+function openWardrobeMenu() {
+ if ($('open-wardrobes').disabled || $('dialog').open || $('wardrobe-menu').open) return;
+ $('wardrobe-menu').showModal();
+}
+$('open-wardrobes').onclick = openWardrobeMenu;
+$('close-wardrobes').onclick = () => $('wardrobe-menu').close();
+$('wardrobe-menu').onclick = event => {
+ if (event.target === $('wardrobe-menu') && event.clientX > $('wardrobe-menu').getBoundingClientRect().right) $('wardrobe-menu').close();
 };
-$('first-wardrobe').onclick = $('create-wardrobe').onclick = createWardrobe;
-$('manage-wardrobe').onclick = manageWardrobe;
+for (const [id, action] of [['create-wardrobe', createWardrobe], ['manage-wardrobe', manageWardrobe], ['enter-invite', enterInvite]]) {
+ $(id).onclick = () => {
+  $('wardrobe-menu').close();
+  void action();
+ };
+}
+$('first-wardrobe').onclick = createWardrobe;
+let swipeStart;
+document.addEventListener('touchstart', event => {
+ const touch = event.touches[0];
+ swipeStart = event.touches.length === 1 && touch.clientX >= 26 && touch.clientX <= 64
+  ? {x: touch.clientX, y: touch.clientY} : null;
+}, {passive: true});
+document.addEventListener('touchend', event => {
+ if (!swipeStart) return;
+ const touch = event.changedTouches[0];
+ if (!event.touches.length && touch.clientX - swipeStart.x > 72 && Math.abs(touch.clientY - swipeStart.y) < 48) openWardrobeMenu();
+ swipeStart = null;
+}, {passive: true});
+document.addEventListener('touchcancel', () => { swipeStart = null; }, {passive: true});
 $('signin').onclick = () => {
  const token = inviteToken();
  location.assign('/auth/resume' + (token ? '?invite=' + encodeURIComponent(token) : ''));

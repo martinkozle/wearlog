@@ -17,9 +17,9 @@ Screenshots use a demo wardrobe. [Photo credits and screenshot generation](docs/
 
 ## Wardrobes
 
-Name your first wardrobe after signing in. Create more from **New wardrobe** and use the switcher to choose which garments you see and wash. Offline entries sync back to the wardrobe where you logged them.
+Name your first wardrobe after signing in. Open the **Wardrobes** menu to create another wardrobe or switch the garments you see and wash. Offline entries sync back to the wardrobe where you logged them.
 
-Under **Manage**, any member can copy a single-use invite link that expires in seven days. The recipient signs in through Cloudflare Access and confirms which wardrobe to join. Members can invite others, log wears and washes, and add or delete garments. History shows who logged each entry. When someone leaves, their past entries stay. The final member can confirm deletion of the wardrobe and its history.
+Under **Manage current wardrobe**, any member can share a single-use invite by link or QR code. It expires in seven days. The recipient signs in through Cloudflare Access and confirms which wardrobe to join. In the installed app, choose **Join with an invite** and paste the link or code to use the app’s existing session. Members can invite others, log wears and washes, and add or delete garments. History shows who logged each entry. When someone leaves, their past entries stay. The final member can confirm deletion of the wardrobe and its history.
 
 ## Everyday use
 
