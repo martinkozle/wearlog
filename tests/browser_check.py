@@ -31,8 +31,11 @@ with sync_playwright() as p:
     page.locator('#add').click()
     assert page.locator('#photo-hint').count()==0
     with page.expect_file_chooser() as chooser:
-        page.locator('#upload-area').click()
+        page.locator('#upload-area').tap()
     assert chooser.value.is_multiple
+    with page.expect_file_chooser() as chooser_from_button:
+        page.locator('#choose-photo').tap()
+    assert chooser_from_button.value.is_multiple
     photo=page.evaluate('''() => {const c=document.createElement('canvas');c.width=300;c.height=450;const x=c.getContext('2d');x.fillStyle='#708273';x.fillRect(0,0,300,450);x.fillStyle='#e9e4d4';x.fillRect(70,80,160,240);return c.toDataURL('image/png').split(',')[1];}''')
     page.locator('#photo').set_input_files({'name':'shirt.png','mimeType':'image/png','buffer':base64.b64decode(photo)})
     expect(page.locator('#crop')).to_be_visible()
@@ -216,13 +219,17 @@ with sync_playwright() as p:
     saved(page)
     wardrobe_action(f'[data-wardrobe="{home}"]')
     expect(page.locator('#wardrobe-title')).to_have_text('Home')
-    wardrobe_action('#manage-wardrobe')
+    wardrobe_action(f'[data-manage-wardrobe="{home}"]')
     expect(page.locator('#dialog-content')).to_contain_text('local@example.com (you)')
     page.locator('#share-wardrobe').click()
     expect(page.locator('#invite-qr')).to_be_visible()
     page.wait_for_function("document.querySelector('#invite-qr').naturalWidth > 0")
+    qr_image = page.locator('#invite-qr').get_attribute('src')
+    expect(page.locator('#invite-code')).to_have_value(re.compile(r'^[a-z2-9]{8}$'))
+    for field in ['#invite-link', '#invite-code']:
+        assert page.locator(field).evaluate("element => getComputedStyle(element).fontSize") == '16px'
     page.locator('#copy-invite').click()
-    expect(page.locator('#invite-link')).to_have_value(re.compile(r'/\?invite=[a-f0-9-]+$'))
+    expect(page.locator('#invite-link')).to_have_value(re.compile(r'/\?invite=[a-z2-9]{8}$'))
     invite_url = page.locator('#invite-link').input_value()
     recipient = browser.new_context()
     invited = recipient.new_page()
@@ -250,12 +257,43 @@ with sync_playwright() as p:
     expect(invited.locator('#dialog-title')).to_have_text('Join Home?')
     invited.get_by_role('button',name='Join wardrobe',exact=True).click()
     expect(invited.locator('#wardrobe-title')).to_have_text('Home')
+    profile['wardrobes'] = []
+    invited.goto('http://localhost:8765')
+    invited.evaluate('''qr => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const image = new Image();
+        image.src = qr;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, 480, 480);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, 40, 40, 400, 400);
+        const stream = canvas.captureStream(15);
+        window.inviteCameraTrack = stream.getVideoTracks()[0];
+        const refresh = setInterval(() => {
+          if (window.inviteCameraTrack.readyState === 'ended') clearInterval(refresh);
+          else ctx.drawImage(image, 40, 40, 400, 400);
+        }, 100);
+        return stream;
+      };
+    }''', qr_image)
+    invited.locator('#open-wardrobes').click()
+    invited.locator('#enter-invite').click()
+    expect(invited.locator('#invite-entry')).to_have_css('font-size', '16px')
+    invited.locator('#scan-invite').click()
+    expect(invited.locator('#dialog-title')).to_have_text('Join Home?', timeout=15000)
+    assert invited.evaluate("window.inviteCameraTrack.readyState") == 'ended'
+    invited.get_by_role('button',name='Join wardrobe',exact=True).click()
+    expect(invited.locator('#wardrobe-title')).to_have_text('Home')
     recipient.close()
     page.locator('#leave-wardrobe').click()
     expect(page.locator('#dialog-content')).to_contain_text('permanently deletes')
     page.get_by_role('button',name='Leave and delete').click()
     expect(page.locator('#wardrobe-title')).to_have_text('Martin’s Wardrobe')
-    wardrobe_action('#manage-wardrobe')
+    wardrobe_action('[data-manage-wardrobe="legacy"]')
     page.locator('#leave-wardrobe').click()
     page.get_by_role('button',name='Leave and delete').click()
     expect(page.locator('#onboarding')).to_be_visible()

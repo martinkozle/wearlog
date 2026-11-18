@@ -1,7 +1,7 @@
-import qrcode from './qrcode.js?v=2026.11.18.7';
-import {createUpdater} from './updates.js?v=2026.11.18.7';
-import {project} from './model.js?v=2026.11.18.7';
-import {validateRecord, photoHash} from './schema.js?v=2026.11.18.7';
+import qrcode from './qrcode.js?v=2026.11.18.8';
+import {createUpdater} from './updates.js?v=2026.11.18.8';
+import {project} from './model.js?v=2026.11.18.8';
+import {validateRecord, photoHash, normalizeInviteCode} from './schema.js?v=2026.11.18.8';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = s => new Date(s).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -114,7 +114,6 @@ function render() {
  $('onboarding').hidden = !profile || Boolean(active);
  $('open-wardrobes').disabled = !profile || switching;
  $('first-wardrobe').disabled = switching;
- $('manage-wardrobe').hidden = !active;
  const list = $('wardrobe-list');
  const menuKey = JSON.stringify([profile?.wardrobes, activeId]);
  if (list.dataset.key !== menuKey) {
@@ -126,7 +125,20 @@ function render() {
    button.dataset.wardrobe = id;
    if (id === activeId) button.setAttribute('aria-current', 'true');
    button.onclick = () => void selectWardrobe(id);
-   return button;
+   const manage = document.createElement('button');
+   manage.type = 'button';
+   manage.className = 'quiet wardrobe-manage';
+   manage.dataset.manageWardrobe = id;
+   manage.setAttribute('aria-label', 'Manage ' + name);
+   manage.textContent = 'Manage';
+   manage.onclick = () => {
+    $('wardrobe-menu').close();
+    void manageWardrobe(id);
+   };
+   const row = document.createElement('div');
+   row.className = 'wardrobe-menu-row';
+   row.append(button, manage);
+   return row;
   }));
   list.dataset.key = menuKey;
  }
@@ -316,11 +328,11 @@ function addDialog(){
  const options=groups.map((g,i)=>`<option value="${i}" ${i===selected?'selected':''}>${esc(g)}</option>`).join('');
  dialog('Add garment',`
   <div id="batch-progress" class="batch-progress" hidden><div><span id="batch-position"></span><span id="batch-added"></span></div><progress id="batch-meter" aria-label="Photos processed" value="0" max="1"></progress></div>
-  <button type="button" id="upload-area" class="upload-area" aria-label="Choose photos">${shirtIcon}<span id="upload-label">Choose or paste a photo</span></button>
+  <label for="photo" id="upload-area" class="upload-area">${shirtIcon}<span id="upload-label">Choose or paste a photo</span></label>
   <canvas class="crop" id="crop" width="640" height="640" aria-label="Drag to crop garment photo" hidden></canvas>
-  <input id="photo" type="file" accept="image/*" multiple aria-label="Garment photos" hidden>
-  <input id="replacement-photo" type="file" accept="image/*" aria-label="Replacement photo" hidden>
-  <div class="photo-controls"><button type="button" class="secondary" id="choose-photo">Choose photos</button><button type="button" class="secondary" id="paste-photo">Paste image</button></div>
+  <input id="photo" type="file" accept="image/*" multiple aria-label="Choose garment photos" class="sr-only">
+  <input id="replacement-photo" type="file" accept="image/*" aria-label="Replace garment photo" class="sr-only" hidden>
+  <div class="photo-controls"><label for="photo" class="secondary photo-picker-label" id="choose-photo">Choose photos</label><button type="button" class="secondary" id="paste-photo">Paste image</button></div>
   <label id="zoom-label" class="crop-label" hidden>Drag to reposition · zoom<input id="zoom" type="range" min="1" max="3" step="0.01" value="1"></label>
   <label>Wash group<select id="group-select">${options}<option value="new" ${groups.length?'':'selected'}>New group…</option></select></label>
   <label id="new-group-label" ${groups.length?'hidden':''}>New group name<input id="group" maxlength="80" placeholder="e.g. Merino" ${groups.length?'':'required'} autocomplete="off"></label>
@@ -358,7 +370,14 @@ function addDialog(){
   submit.dataset.unavailable=String(loading||saving||!image);submit.disabled=loading||saving||!image;
   $('skip-photo').hidden=!batch;$('skip-photo').disabled=loading||saving;
   $('choose-photo').textContent=image?(batch?'Replace photo':'Change photo'):'Choose photos';
-  for(const id of ['choose-photo','paste-photo','upload-area','group-select','group','name','zoom','add-name'])$(id).disabled=loading||saving;
+  const picker = batch ? 'replacement-photo' : 'photo';
+  for (const id of ['upload-area', 'choose-photo']) {
+   $(id).htmlFor = picker;
+   $(id).setAttribute('aria-disabled', String(loading || saving));
+  }
+  $('photo').hidden = batch;
+  $('replacement-photo').hidden = !batch;
+  for(const id of ['photo','replacement-photo','paste-photo','group-select','group','name','zoom','add-name'])$(id).disabled=loading||saving;
   $('close').disabled=saving;
   $('name-label').hidden=batch&&!nameVisible;
   $('add-name').hidden=!batch||nameVisible;
@@ -394,10 +413,7 @@ function addDialog(){
   if(!files.length)return acceptPhotos([file]);
   files[position]=file;await loadPhoto(file);
  }
- function choosePhoto(){if(files.length>1)$('replacement-photo').click();else $('photo').click();}
  $('group-select').onchange=()=>{const creating=$('group-select').value==='new';$('new-group-label').hidden=!creating;$('group').required=creating;if(creating)$('group').focus();};
- $('upload-area').onclick=choosePhoto;
- $('choose-photo').onclick=choosePhoto;
  $('photo').onchange=()=>{const incoming=Array.from($('photo').files);$('photo').value='';void acceptPhotos(incoming);};
  $('replacement-photo').onchange=()=>{const file=$('replacement-photo').files[0];$('replacement-photo').value='';void replacePhoto(file);};
  $('skip-photo').onclick=async()=>{if(!loading&&!saving)await advance();};
@@ -478,20 +494,108 @@ async function confirmInvite(token, {invite, account}, fromLink = false) {
   });
  if (fromLink) $('dialog').onclose = clearInvite;
 }
+function inviteCode(value) {
+ const text = value.trim();
+ try { return normalizeInviteCode(new URL(text).searchParams.get('invite')); }
+ catch { return normalizeInviteCode(text); }
+}
 function enterInvite() {
- dialog('Join with an invite', '<label>Invite link or code<input id="invite-entry" type="text" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>',
+ dialog('Join with an invite', `
+  <button id="scan-invite" type="button" class="secondary">Scan QR code</button>
+  <video id="invite-camera" autoplay muted playsinline hidden></video>
+  <p id="scan-status" class="hint" role="status"></p>
+  <label>Invite link or code<input id="invite-entry" type="text" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>`,
   saveButton('Continue'), async () => {
    const input = $('invite-entry');
-   const value = input.value.trim();
-   let token = value;
-   try { token = new URL(value).searchParams.get('invite'); } catch {}
-   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(token || '')) throw new Error('Paste a Wearlog invite link or code.');
-   token = token.toLowerCase();
+   const token = inviteCode(input.value);
+   if (!token) throw new Error('Enter a Wearlog invite link or code.');
+   stop();
    const preview = await previewInvite(token);
    if (!$('dialog').open || !input.isConnected) return;
    $('dialog').close();
    await confirmInvite(token, preview);
   });
+ const video = $('invite-camera');
+ const button = $('scan-invite');
+ const status = $('scan-status');
+ let stream, frame, session = 0;
+ const stop = () => {
+  session++;
+  cancelAnimationFrame(frame);
+  stream?.getTracks().forEach(track => track.stop());
+  stream = undefined;
+  video.srcObject = null;
+  video.hidden = true;
+  button.textContent = 'Scan QR code';
+  button.disabled = false;
+ };
+ const onHide = () => { if (document.hidden) stop(); };
+ document.addEventListener('visibilitychange', onHide);
+ const closeScanner = () => {
+  stop();
+  document.removeEventListener('visibilitychange', onHide);
+ };
+ $('dialog').addEventListener('close', closeScanner, {once: true});
+ window.addEventListener('pagehide', closeScanner, {once: true});
+ $('dialog').addEventListener('close', () => window.removeEventListener('pagehide', closeScanner), {once: true});
+ button.onclick = async () => {
+  if (stream) {
+   stop();
+   status.textContent = '';
+   return;
+  }
+  button.disabled = true;
+  const generation = ++session;
+  status.textContent = 'Opening camera…';
+  try {
+   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera unavailable');
+   const camera = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}}, audio: false});
+   if (generation !== session || !$('dialog').open) {
+    camera.getTracks().forEach(track => track.stop());
+    return;
+   }
+   stream = camera;
+   const {default: decode} = await import('./qr-decoder.js?v=2026.11.18.8');
+   if (generation !== session) return;
+   video.srcObject = stream;
+   video.hidden = false;
+   await video.play();
+   if (generation !== session) return;
+   button.textContent = 'Stop scanning';
+   button.disabled = false;
+   status.textContent = 'Point the camera at the Wearlog QR code.';
+   const canvas = document.createElement('canvas');
+   const context = canvas.getContext('2d', {willReadFrequently: true});
+   let previous = 0;
+   function scan(now) {
+    if (generation !== session) return;
+    if (video.readyState >= 2 && video.videoWidth && now - previous >= 140) {
+     previous = now;
+     const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+     canvas.width = Math.round(video.videoWidth * scale);
+     canvas.height = Math.round(video.videoHeight * scale);
+     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+     const image = context.getImageData(0, 0, canvas.width, canvas.height);
+     const result = decode(image.data, image.width, image.height, {inversionAttempts: 'dontInvert'});
+     const token = result && inviteCode(result.data);
+     if (token) {
+      $('invite-entry').value = token;
+      status.textContent = '';
+      stop();
+      $('form').requestSubmit();
+      return;
+     }
+     if (result) status.textContent = 'That QR code is not a Wearlog invite.';
+    }
+    frame = requestAnimationFrame(scan);
+   }
+   frame = requestAnimationFrame(scan);
+  } catch {
+   if (generation !== session) return;
+   stop();
+   status.textContent = 'Camera unavailable. Allow camera access or enter the invite code.';
+  }
+ };
 }
 async function showInvite() {
  const token = inviteToken();
@@ -515,22 +619,22 @@ function inviteQr(url) {
  qr.make();
  return qr.createDataURL(5, 20);
 }
-async function manageWardrobe() {
- const id = activeId;
+async function manageWardrobe(id) {
  const account = profile.account;
- const key = scope;
+ const key = wardrobeScope(account, id);
  const path = '/api/wardrobes/' + id;
  try {
   const {members} = await api(path + '/members', {account});
-  if (scope !== key || $('dialog').open) return;
-  const name = profile.wardrobes.find(wardrobe => wardrobe.id === id).name;
+  const wardrobe = profile?.wardrobes.find(wardrobe => wardrobe.id === id);
+  if (profile?.account !== account || !wardrobe || $('dialog').open || $('wardrobe-menu').open) return;
+  const {name} = wardrobe;
   dialog(name,
    `<ul class="history">${members.map(member => `<li>${esc(member.email ?? member.name)}${member.you ? ' (you)' : ''}</li>`).join('')}</ul>
     <section id="invite-result" hidden>
      <img id="invite-qr" class="invite-qr" alt="QR code for this wardrobe invite">
      <label>Invite link<input id="invite-link" readonly></label>
      <label>Invite code<input id="invite-code" readonly></label>
-     <p class="hint">To join in the installed app, open Wardrobes and choose Join with an invite.</p>
+     <p class="hint">To join in the installed app, choose Wardrobes → Join with an invite → Scan QR code.</p>
      <button type="button" id="copy-invite" class="secondary">Copy invite link</button>
      <p id="invite-status" class="hint" role="status"></p>
     </section>`,
@@ -581,7 +685,7 @@ function confirmLeave(path, account, id, name, last, key) {
    '<p class="hint">Other members will keep the garments and history.</p>',
   saveButton(last ? 'Leave and delete' : 'Leave wardrobe'), async () => {
    await sync();
-   if (scope !== key) return;
+   if (profile?.account !== account) return;
    if ((await load(key))?.outbox.length && !window.confirm('Some changes are still pending. Cancel to export a backup or retry sync. Leave anyway?')) return;
    try {
     await api(path + '/leave', {account, body: {deleteIfLast: last}});
@@ -594,7 +698,8 @@ function confirmLeave(path, account, id, name, last, key) {
    const remaining = profile.wardrobes.filter(wardrobe => wardrobe.id !== id);
    const saved = await load(key);
    if (!saved?.outbox.length) await writeState(store => store.delete(key));
-   await setActive({...profile, wardrobes: remaining}, remaining[0]?.id);
+   await setActive({...profile, wardrobes: remaining}, activeId === id ? remaining[0]?.id : activeId);
+   $('dialog').close();
    notify('Wardrobe left');
    void sync();
   });
@@ -625,7 +730,7 @@ $('close-wardrobes').onclick = () => $('wardrobe-menu').close();
 $('wardrobe-menu').onclick = event => {
  if (event.target === $('wardrobe-menu') && event.clientX > $('wardrobe-menu').getBoundingClientRect().right) $('wardrobe-menu').close();
 };
-for (const [id, action] of [['create-wardrobe', createWardrobe], ['manage-wardrobe', manageWardrobe], ['enter-invite', enterInvite]]) {
+for (const [id, action] of [['create-wardrobe', createWardrobe], ['enter-invite', enterInvite]]) {
  $(id).onclick = () => {
   $('wardrobe-menu').close();
   void action();
@@ -635,13 +740,28 @@ $('first-wardrobe').onclick = createWardrobe;
 let swipeStart;
 document.addEventListener('touchstart', event => {
  const touch = event.touches[0];
- swipeStart = event.touches.length === 1 && touch.clientX >= 26 && touch.clientX <= 64
+ const nearLeft = touch.clientX >= 18 && touch.clientX <= Math.min(100, innerWidth * .27);
+ swipeStart = event.touches.length === 1 && nearLeft && !$('dialog').open && !$('wardrobe-menu').open
   ? {x: touch.clientX, y: touch.clientY} : null;
 }, {passive: true});
+document.addEventListener('touchmove', event => {
+ if (!swipeStart) return;
+ const touch = event.touches[0];
+ const dx = touch.clientX - swipeStart.x;
+ const dy = Math.abs(touch.clientY - swipeStart.y);
+ if (event.touches.length !== 1 || dx < -15 || dy > 30 && dy > dx) {
+  swipeStart = null;
+ } else if (dx >= 54 && dx > dy * 1.5) {
+  if (event.cancelable) event.preventDefault();
+  swipeStart = null;
+  openWardrobeMenu();
+ }
+}, {passive: false});
 document.addEventListener('touchend', event => {
  if (!swipeStart) return;
  const touch = event.changedTouches[0];
- if (!event.touches.length && touch.clientX - swipeStart.x > 72 && Math.abs(touch.clientY - swipeStart.y) < 48) openWardrobeMenu();
+ const dx = touch.clientX - swipeStart.x;
+ if (!event.touches.length && dx >= 54 && dx > Math.abs(touch.clientY - swipeStart.y) * 1.5) openWardrobeMenu();
  swipeStart = null;
 }, {passive: true});
 document.addEventListener('touchcancel', () => { swipeStart = null; }, {passive: true});

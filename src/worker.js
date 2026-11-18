@@ -1,5 +1,5 @@
 import {createRemoteJWKSet, jwtVerify} from 'jose';
-import {validateRecord, photoHash} from '../web/schema.js';
+import {validateRecord, photoHash, normalizeInviteCode} from '../web/schema.js';
 import {accountId, cleanWardrobePhotos, displayName, findMembership, manageWardrobes, photoKey} from './wardrobes.js';
 const MAX_JSON = 256000, MAX_PHOTO = 600000;
 const json = (data,status=200) => Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -43,8 +43,8 @@ async function handle(request,env,ctx) {
   const url=new URL(request.url),path=url.pathname;
   if(path==='/api/health')return json({status:'ok'});
   if(path==='/auth/resume') {
-    const token = url.searchParams.get('invite');
-    const location = /^[a-f0-9-]{36}$/.test(token || '') ? '/?invite=' + token : '/';
+    const token = normalizeInviteCode(url.searchParams.get('invite'));
+    const location = token ? '/?invite=' + token : '/';
     return new Response(null,{status:303,headers:{Location:location, 'Cache-Control':'no-store'}});
   }
   // Cloudflare Access protects the shell; validate its signed assertion on all data routes too.

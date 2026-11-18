@@ -10,7 +10,9 @@ input:not([type=checkbox]):not([type=range]),form select{display:block;width:100
 @keyframes wardrobe-menu-in{from{transform:translateX(-100%)}}
 .wardrobe-menu-content{padding:14px 18px 24px}
 #wardrobe-list,.wardrobe-menu-actions{display:grid;gap:8px}
-.wardrobe-menu-actions{margin-top:18px}
+.wardrobe-menu-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px}
+.wardrobe-menu-row .wardrobe-manage{font-size:13px;padding-inline:8px}
+.wardrobe-menu-actions{margin-top:18px;padding-top:12px;border-top:1px solid var(--border)}
 .wardrobe-menu-actions button,.wardrobe-option{text-align:left;overflow-wrap:anywhere}
 .wardrobe-option{background:#f7f8fa;color:#34433b;border-color:var(--border)}
 .wardrobe-option[aria-current=true]{background:#eaf2ed;color:var(--green);border-color:#b8cfc2}
@@ -18,7 +20,14 @@ input:not([type=checkbox]):not([type=range]),form select{display:block;width:100
 .page-heading button{flex-shrink:0}
 .danger{background:#fff;border-color:#ecd9d4;color:#a24231}
 .danger:hover{background:#faf0ed}
-#invite-result input{font-size:14px}
+#invite-result input,#invite-entry{font-size:16px}
+#invite-camera{display:block;width:100%;max-height:240px;object-fit:cover;border-radius:9px;margin-top:10px;background:#202724}
 .invite-qr{display:block;margin:12px auto;width:min(100%,225px);height:auto;image-rendering:pixelated}
 #invite-result button{margin-top:12px}
 #dialog-content .history{overflow-wrap:anywhere}
+
+html,button,.upload-area,.photo-picker-label{touch-action:manipulation}
+#dialog-content .upload-area{display:flex;margin:0;cursor:pointer}
+#dialog-content .photo-picker-label{display:grid;place-items:center;flex:1;margin:0;min-height:44px;padding:11px 16px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-weight:600;cursor:pointer}
+#dialog-content label[aria-disabled=true]{opacity:.5;cursor:wait}
+#dialog-content:has(input[type=file]:focus-visible) #choose-photo{outline:3px solid #81ad99;outline-offset:3px}
