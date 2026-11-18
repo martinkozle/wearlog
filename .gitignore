@@ -8,3 +8,4 @@ test-results/
 data/
 worker-startup.cpuprofile
 /web/qrcode.js
+/web/qr-decoder.js

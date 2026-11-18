@@ -1,7 +1,6 @@
-import {photoHash} from '../web/schema.js';
+import {inviteAlphabet, normalizeInviteCode, photoHash} from '../web/schema.js';
 
 export const LEGACY_WARDROBE = 'legacy';
-const tokenPattern = /^[a-f0-9-]{36}$/;
 export const accountId = email => photoHash(new TextEncoder().encode(email));
 export const displayName = email => email.split('@')[0].split(/[._-]+/).filter(Boolean)
   .map(part => part[0].toUpperCase() + part.slice(1)).join(' ').slice(0, 120) || email;
@@ -57,8 +56,8 @@ export async function manageWardrobes({db, request, url, user, json, problem, re
   }
 
   if (path === '/api/invites' && ['GET', 'POST'].includes(request.method)) {
-    const token = request.method === 'GET' ? url.searchParams.get('token') : (await readJson(request))?.token;
-    if (!tokenPattern.test(token || '')) throw problem(404, 'Invite unavailable');
+    const token = normalizeInviteCode(request.method === 'GET' ? url.searchParams.get('token') : (await readJson(request))?.token);
+    if (!token) throw problem(404, 'Invite unavailable');
     const hash = await accountId(token);
     const now = Date.now();
     if (request.method === 'POST') {
@@ -95,7 +94,7 @@ export async function manageWardrobes({db, request, url, user, json, problem, re
   }
 
   if (action === 'invite' && request.method === 'POST') {
-    const token = crypto.randomUUID();
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(8)), byte => inviteAlphabet[byte & 31]).join('');
     const expiresAt = Date.now() + 7 * 86400000;
     const result = await db.prepare(`
       INSERT INTO wardrobe_invites (token_hash, wardrobe_id, expires_at)

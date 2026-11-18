@@ -26,3 +26,12 @@ export function validateRecord(r) {
 export async function photoHash(bytes) {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+
+export const inviteAlphabet = '23456789abcdefghijkmnpqrstuvwxyz';
+
+export function normalizeInviteCode(value) {
+  if (typeof value !== 'string') return null;
+  const code = value.trim().toLowerCase();
+  if (/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(code)) return code;
+  return code.length === 8 && [...code].every(character => inviteAlphabet.includes(character)) ? code : null;
+}

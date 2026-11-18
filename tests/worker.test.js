@@ -117,7 +117,8 @@ test('shared wardrobes migrate, isolate members, attribute history and clean up'
 
  const base = '/wardrobes/legacy';
  const {token} = await get(friend(base + '/invite', {body:{}}), 201);
- const preview = await get(guest('/invites?token=' + token));
+ assert.match(token, /^[a-z2-9]{8}$/);
+ const preview = await get(guest('/invites?token=' + token.toUpperCase()));
  assert.equal(preview.name, 'Martin’s Wardrobe');
  assert.equal(preview.joined, false);
  assert.equal((await sync(guest, 'legacy')).status, 404);
