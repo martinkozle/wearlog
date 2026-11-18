@@ -2,11 +2,11 @@
 
 Wearlog helps you remember how many times you've worn your clothes since washing them. Add a photo of each garment, tap **+1 Wear now** when you put it on, and record a wash when it's ready for a fresh start.
 
-Install it on your phone as a progressive web app. Wears save immediately on the device, work offline, and sync across devices when you reopen the app with an internet connection.
+Install it on your phone as a progressive web app. Wears save immediately on the device, work offline, and sync across devices automatically whenever the app is open with an internet connection.
 
 ## Everyday use
 
-- **Add a garment:** choose a photo, drag and zoom to crop it, and assign a wash group. Names are optional.
+- **Add a garment:** choose or paste a photo, drag and zoom to crop it, and select an existing wash group or create one. Names are optional.
 - **Log a wear:** tap **+1 Wear now** to record today's wear and the time you logged it.
 - **Catch up:** open a garment to add several past wears, with an optional date.
 - **Check history:** see previous entries and undo mistakes.
@@ -30,9 +30,9 @@ Code deployments preserve the database and photo bucket. See [deployment setup](
 
 ## Install on iPhone
 
-Open your hosted Wearlog URL in Safari, sign in, and choose **Share → Add to Home Screen**. Open the installed app online and wait for **All changes synced** before using it offline.
+Open your hosted Wearlog URL in Safari, sign in, and choose **Share → Add to Home Screen**. Open the installed app online and wait for **Saved** before using it offline.
 
-When your session expires, entries stay on the device. Tap **Sign in to sync**, complete sign-in, and the app resumes syncing. Reopening the app or tapping **Sync** also retries pending work. Cached records remain available offline on the device after a cloud session expires.
+When your session expires, entries stay on the device. Tap **Sign in to sync**, complete sign-in, and the app resumes syncing. Changes sync after each action, when you return to the app, and every 30 seconds while it is open. Failed requests retry automatically. Cached records remain available offline on the device after a cloud session expires.
 
 ## Local development
 
