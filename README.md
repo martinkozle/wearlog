@@ -15,6 +15,12 @@ Install it on your phone as a progressive web app. Wears save immediately on the
 
 Screenshots use a demo wardrobe. [Photo credits and screenshot generation](docs/images/CREDITS.md).
 
+## Wardrobes
+
+Name your first wardrobe after signing in. Create more from **New wardrobe** and use the switcher to choose which garments you see and wash. Offline entries sync back to the wardrobe where you logged them.
+
+Under **Manage**, any member can copy a single-use invite link that expires in seven days. The recipient signs in through Cloudflare Access and confirms which wardrobe to join. Members can invite others, log wears and washes, and add or delete garments. History shows who logged each entry. When someone leaves, their past entries stay. The final member can confirm deletion of the wardrobe and its history.
+
 ## Everyday use
 
 - **Add a garment:** choose or paste a photo, drag and zoom to crop it, and select an existing wash group or create one. Names are optional.
@@ -33,7 +39,7 @@ Wearlog runs on Cloudflare:
 | Service | Stores or serves |
 | --- | --- |
 | Worker with Static Assets | The PWA and API |
-| D1 | Garments and wear/wash history |
+| D1 | Wardrobes, memberships, invites, garments and wear/wash history |
 | Private R2 bucket | Garment photos |
 | Access | Sign-in and the user allowlist |
 | IndexedDB on your device | Offline photos, records, and pending entries |

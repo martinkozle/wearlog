@@ -4,3 +4,12 @@ input:not([type=checkbox]):not([type=range]),form select{display:block;width:100
 .card{display:flex;flex-direction:column}.card-body{display:flex;flex-direction:column;flex:1}.card h3{margin-top:8px}.last{margin:9px 0 16px}.wear{margin-top:auto}
 .app-header{position:sticky;top:0;z-index:2;background:#f7f8faf5;backdrop-filter:blur(12px)}.upload-area{width:100%;font-weight:400;padding:20px}.upload-area:not(:disabled):hover{background:#eef3f0;border-color:#92ab9c}.batch-progress{margin:0 0 14px}.batch-progress>div{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px}.batch-progress>div>span:first-child{font-weight:600;color:#34433b}.batch-progress progress{display:block;width:100%;height:4px;border:0;border-radius:3px;accent-color:var(--green);overflow:hidden}.batch-progress progress::-webkit-progress-bar{background:#e8ede9}.batch-progress progress::-webkit-progress-value{background:var(--green)}.batch-progress progress::-moz-progress-bar{background:var(--green)}.add-name{padding:8px 0;font-size:13px;margin-top:12px;min-height:40px;text-align:left}#skip-photo{flex:0 0 auto;font-size:14px}
 .update-notice{max-width:1064px;margin:12px auto 0;padding:10px 16px;background:#eaf2ed;border:1px solid #d4e3d9;border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}.update-notice button{font-size:13px;flex-shrink:0}.app-version{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--muted);margin-bottom:8px}.app-version button{font-size:13px}.recovery{max-width:560px;padding-top:70px}.recovery p{font-size:15px;line-height:1.6;color:var(--muted);margin:18px 0}.recovery a{display:block;margin-top:24px;color:var(--green);font-size:14px}@media(max-width:600px){.update-notice{margin:12px 16px 0}}
+.wardrobe-bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px;align-items:center}
+.wardrobe-bar select{flex:1;min-width:0;max-width:340px;text-overflow:ellipsis}
+.wardrobe-bar button{font-size:13px;padding-inline:12px}
+.page-heading h1{overflow-wrap:anywhere}
+.page-heading button{flex-shrink:0}
+.danger{background:#fff;border-color:#ecd9d4;color:#a24231}
+.danger:hover{background:#faf0ed}
+#invite-result input{font-size:14px}
+@media(max-width:420px){.wardrobe-bar select{flex-basis:100%;max-width:none}}

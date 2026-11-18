@@ -1,7 +1,7 @@
 """Browser smoke test: local Worker, temporary storage, optional system Chromium."""
 from playwright.sync_api import sync_playwright, expect
 from pathlib import Path
-import os, subprocess, tempfile, atexit, time, urllib.request, base64
+import os, re, subprocess, tempfile, atexit, time, urllib.request, base64
 sandbox = tempfile.TemporaryDirectory()
 atexit.register(sandbox.cleanup)
 process = subprocess.Popen(['node', 'scripts/test-runtime.mjs'], cwd=Path(__file__).resolve().parents[1], env={**os.environ, 'PORT':'8765','TEST_STATE':sandbox.name}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -168,9 +168,74 @@ with sync_playwright() as p:
     page.screenshot(path='/tmp/wearlog-batch-v4.png',full_page=True)
     page.locator('#close').click()
     page.screenshot(path='/tmp/wearlog-header-v4.png',full_page=True)
+    # Pending offline events stay in their original wardrobe after switching.
+    page.locator('#create-wardrobe').click()
+    page.locator('#wardrobe-name').fill('Home')
+    page.get_by_role('button',name='Create wardrobe',exact=True).click()
+    expect(page.locator('#wardrobe-title')).to_have_text('Home')
+    home = page.locator('#wardrobe-select').input_value()
+    expect(page.locator('.card')).to_have_count(0)
+    page.locator('#wardrobe-select').select_option('legacy')
+    expect(page.locator('#wardrobe-title')).to_have_text('Martin’s Wardrobe')
+    saved(page)
+    context.set_offline(True)
+    original_count = first.locator('.count').inner_text()
+    first.get_by_role('button',name='+1 Wear now',exact=True).click()
+    expect(page.locator('#status')).to_contain_text('1 pending')
+    page.locator('#wardrobe-select').select_option(home)
+    expect(page.locator('#wardrobe-title')).to_have_text('Home')
+    expect(page.locator('.card')).to_have_count(0)
+    context.set_offline(False)
+    saved(page)
+    fresh.reload()
+    expect(fresh.locator('.card').first.locator('.count')).not_to_have_text(original_count)
+    page.locator('#wardrobe-select').select_option('legacy')
+    expect(page.locator('#wardrobe-title')).to_have_text('Martin’s Wardrobe')
+    first.locator('.photo-button').click()
+    expect(page.locator('.history').first).to_contain_text('Local')
+    page.get_by_role('button',name='Delete',exact=True).click()
+    page.get_by_role('button',name='Delete garment',exact=True).click()
+    expect(page.locator('.card')).to_have_count(4)
+    saved(page)
+    page.locator('#wardrobe-select').select_option(home)
+    expect(page.locator('#wardrobe-title')).to_have_text('Home')
+    page.locator('#manage-wardrobe').click()
+    page.locator('#copy-invite').click()
+    expect(page.locator('#invite-link')).to_have_value(re.compile(r'/\?invite=[a-f0-9-]+$'))
+    invite_url = page.locator('#invite-link').input_value()
+    recipient = browser.new_context()
+    invited = recipient.new_page()
+    profile = {'account':'test-recipient','name':'Recipient','wardrobes':[]}
+    invited.route('**/api/wardrobes', lambda route: route.fulfill(json=profile))
+    invited.route('**/api/invites?token=*', lambda route: route.fulfill(json={'id':home,'name':'Home','joined':False}))
+    def accept_invite(route):
+        profile['wardrobes'] = [{'id':home,'name':'Home'}]
+        route.fulfill(json={'id':home,'name':'Home','joined':True})
+    invited.route('**/api/invites', accept_invite)
+    invited.route('**/api/sync', lambda route: route.fulfill(json={
+        'version':3,'records':[],'acknowledged':[],'cursor':0,'hasMore':False
+    }))
+    invited.goto(invite_url)
+    expect(invited.locator('#dialog-title')).to_have_text('Join Home?')
+    invited.get_by_role('button',name='Join wardrobe',exact=True).click()
+    expect(invited.locator('#wardrobe-title')).to_have_text('Home')
+    assert '?invite=' not in invited.url
+    recipient.close()
+    page.locator('#leave-wardrobe').click()
+    expect(page.locator('#dialog-content')).to_contain_text('permanently deletes')
+    page.get_by_role('button',name='Leave and delete').click()
+    expect(page.locator('#wardrobe-title')).to_have_text('Martin’s Wardrobe')
+    page.locator('#manage-wardrobe').click()
+    page.locator('#leave-wardrobe').click()
+    page.get_by_role('button',name='Leave and delete').click()
+    expect(page.locator('#onboarding')).to_be_visible()
+    page.locator('#first-wardrobe').click()
+    expect(page.locator('#wardrobe-name')).to_have_value('Local’s Wardrobe')
+    page.get_by_role('button',name='Create wardrobe',exact=True).click()
+    expect(page.locator('#wardrobe-title')).to_have_text('Local’s Wardrobe')
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     assert context.request.post('http://localhost:8765/api/sync',data={'records':[]},headers={'Origin':'https://evil.example'}).status==403
-    assert context.request.post('http://localhost:8765/api/sync',data='bad').status==415
-    print('PASS: gallery batch save/skip, invalid-photo recovery, partial-batch persistence, clickable picker, sticky header;  cropped photo, pasted image, group picker, optional name, 16px inputs, offline reload, wash/undo, automatic retry, session recovery, cross-device polling and mobile layout')
+    assert context.request.post('http://localhost:8765/api/sync',data='bad').status==426
+    print('PASS: onboarding, invite confirmation, wardrobe switching and deletion, scoped offline sync, actor history, gallery batch save/skip, invalid-photo recovery, partial-batch persistence, clickable picker, sticky header;  cropped photo, pasted image, group picker, optional name, 16px inputs, offline reload, wash/undo, automatic retry, session recovery, cross-device polling and mobile layout')
     browser.close()

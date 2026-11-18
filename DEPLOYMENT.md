@@ -37,6 +37,14 @@ Configure these repository or environment variables:
 
 Store a scoped `CLOUDFLARE_API_TOKEN` as an environment secret. The workflow applies pending SQL migrations before deployment. Use additive schema changes compatible with the currently running release.
 
+## Upgrade the original wardrobe
+
+For an existing installation, set `WEARLOG_LEGACY_MEMBERS` before deploying the shared-wardrobes release. Use the comma-separated, exact sign-in emails for the existing members. Set this as a production environment variable in GitHub Actions or in the local deployment configuration. Keep the existing Access allowlist.
+
+On the first authenticated wardrobe list request, Wearlog creates **Martin’s Wardrobe**, adds the configured memberships, and moves the original event log in a single D1 transaction. Original R2 photo keys still work. The updated app adopts the previous local cache and pending entries when it verifies membership in this wardrobe. Open the updated app on devices with pending entries and wait for **Saved** before clearing device storage. On a fresh installation, leave the variable empty for first-wardrobe onboarding.
+
+Back up D1 and R2 before this upgrade. After the event log has moved, rollback requires restoring compatible data as well as the previous Worker. The scheduled Worker removes expired invites and retries paginated R2 cleanup after wardrobe deletion.
+
 ## Verify a release
 
 - A fresh, unauthenticated browser is sent to Cloudflare Access.

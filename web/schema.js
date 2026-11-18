@@ -2,7 +2,7 @@
 export function validateRecord(r) {
   const fail = message => { throw new Error(message); };
   const id = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
-  if (!r || !id(r.id) || !['garment', 'wear', 'wash', 'undo'].includes(r.type)) fail('Invalid record id or type');
+  if (!r || !id(r.id) || !['garment', 'wear', 'wash', 'undo', 'delete'].includes(r.type)) fail('Invalid record id or type');
   if (typeof r.recordedAt !== 'string' || !/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(r.recordedAt) || !Number.isFinite(Date.parse(r.recordedAt))) fail('recordedAt must include a timezone');
   const base = {id:r.id, type:r.type, recordedAt:r.recordedAt};
   if (r.type === 'garment') {
@@ -14,6 +14,10 @@ export function validateRecord(r) {
     if (!id(r.garmentId) || !Number.isInteger(r.quantity) || r.quantity < 1 || r.quantity > 999) fail('Wear quantity must be between 1 and 999');
     if (r.wornOn !== null && (typeof r.wornOn !== 'string' || !/^\d{4}-\d\d-\d\d$/.test(r.wornOn) || new Date(r.wornOn+'T12:00:00Z').toISOString().slice(0,10) !== r.wornOn)) fail('Invalid wear date');
     return {...base,garmentId:r.garmentId,quantity:r.quantity,wornOn:r.wornOn};
+  }
+  if (r.type === 'delete') {
+    if (!id(r.garmentId)) fail('Invalid garment reference');
+    return {...base, garmentId:r.garmentId};
   }
   const key = r.type === 'wash' ? 'wearIds' : 'eventIds';
   if (!Array.isArray(r[key]) || !r[key].length || r[key].length > 1000 || !r[key].every(id)) fail('Invalid event references');
