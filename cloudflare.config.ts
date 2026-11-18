@@ -1,4 +1,4 @@
-import {bindings, defineConfig} from 'cf/config';
+import {bindings, defineConfig, triggers} from 'cf/config';
 export default defineConfig(({mode}) => ({
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
   worker: {
@@ -7,6 +7,7 @@ export default defineConfig(({mode}) => ({
     compatibilityDate: '2026-11-18',
     workersDev: true,
     previewUrls: false,
+    triggers: [triggers.scheduled({schedule:'*/15 * * * *'})],
     domains: process.env.WEARLOG_HOSTNAME ? [process.env.WEARLOG_HOSTNAME] : undefined,
     assets: {runWorkerFirst: ['/api/*','/auth/*']},
     env: {
@@ -15,6 +16,7 @@ export default defineConfig(({mode}) => ({
       ASSETS: bindings.assets(),
       ACCESS_ISSUER: bindings.text(process.env.WEARLOG_ACCESS_ISSUER || ''),
       ACCESS_AUD: bindings.text(process.env.WEARLOG_ACCESS_AUD || ''),
+      LEGACY_MEMBERS: bindings.text(process.env.WEARLOG_LEGACY_MEMBERS || ''),
       LOCAL_DEV: bindings.text(mode==='development'?'true':'false'),
     },
     observability: {enabled:true,traces:{enabled:true,headSamplingRate:0.1}},

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="app-version" content="2026.11.18.5">
+  <meta name="app-version" content="2026.11.18.6">
   <meta name="theme-color" content="#f7f8fa">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=2026.11.18.5">
+  <link rel="stylesheet" href="/style.css?v=2026.11.18.6">
   <title>Wearlog</title>
 <!-- Settings icon from Lucide.
 ISC License
@@ -54,9 +54,21 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
   </header>
   <div id="app-update" class="update-notice" role="status" hidden><span>App update available</span><button id="install-update" class="secondary">Update &amp; reload</button></div>
   <main>
-    <div class="page-heading"><div><h1>Wardrobe</h1><p id="total" class="muted"></p></div><button id="add" class="primary"><span aria-hidden="true">+</span> Add garment</button></div>
+    <section id="wardrobe-bar" class="wardrobe-bar" aria-label="Wardrobes" hidden>
+      <select id="wardrobe-select" aria-label="Active wardrobe"></select>
+      <button id="manage-wardrobe" class="secondary">Manage</button>
+      <button id="create-wardrobe" class="secondary">New wardrobe</button>
+    </section>
+    <section id="onboarding" class="empty" hidden>
+      <h1>Create your first wardrobe</h1>
+      <p>Give your wardrobe a name. You can share it later.</p>
+      <button id="first-wardrobe" class="primary">Name your wardrobe</button>
+    </section>
+    <section id="wardrobe-content" aria-label="Active wardrobe" hidden>
+    <div class="page-heading"><div><h1 id="wardrobe-title">Wardrobe</h1><p id="total" class="muted"></p></div><button id="add" class="primary"><span aria-hidden="true">+</span> Add garment</button></div>
     <div class="controls"><label class="group-filter"><span class="sr-only">Wash group</span><select id="filter" aria-label="Wash group"><option value="">All groups</option></select></label><button id="wash" class="secondary">Wash a load</button></div>
     <section id="grid" class="grid" aria-label="Garments"></section>
+    </section>
   </main>
   <dialog id="dialog">
     <form id="form">
@@ -67,6 +79,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     </form>
   </dialog>
   <div id="toast" role="status" hidden></div>
-  <script type="module" src="/app.js?v=2026.11.18.5"></script>
+  <script type="module" src="/app.js?v=2026.11.18.6"></script>
 </body>
 </html>

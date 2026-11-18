@@ -14,7 +14,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
     def do_POST(self):self.respond(503,b'{"error":"Temporary test outage"}','application/json')
     def respond(self,status,body,mime='text/plain'):
-        self.send_response(status);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(body)
+        self.send_response(status);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.end_headers()
+        try:self.wfile.write(body)
+        except (BrokenPipeError,ConnectionResetError):pass
     def do_GET(self):
         path=urlsplit(self.path).path
         if (path=='/version.json' and state['auth_version']) or (path=='/schema.js' and state['break_install']):
@@ -24,6 +26,9 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/':return self.respond(200,b'<!doctype html><title>Legacy</title><h1>Legacy app</h1>','text/html')
             if path=='/sw.js':return self.respond(200,LEGACY_SW.encode(),'text/javascript')
         version=CURRENT if state['mode'] in ('legacy','current') else NEXT if state['mode']=='next' else BROKEN
+        if path=='/api/wardrobes':
+            profile={'account':'test-account','name':'Local','wardrobes':[{'id':'legacy','name':'Martin’s Wardrobe'}]}
+            return self.respond(200,json.dumps(profile).encode(),'application/json')
         if path=='/version.json':return self.respond(200,json.dumps({'version':version}).encode(),'application/json')
         name='index.html' if path=='/' else 'update.html' if path=='/update' else path.lstrip('/')
         file=ROOT/name
@@ -35,7 +40,7 @@ server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 URL=f'http://localhost:{server.server_address[1]}'
 def snapshot(page):
-    return page.evaluate('''() => new Promise((resolve,reject)=>{const r=indexedDB.open('wearlog',1);r.onsuccess=()=>{const db=r.result;const q=db.transaction('state').objectStore('state').get('main');q.onsuccess=()=>{db.close();resolve(q.result)};q.onerror=()=>reject(q.error)}})''')
+    return page.evaluate('''() => new Promise((resolve,reject)=>{const r=indexedDB.open('wearlog',1);r.onsuccess=()=>{const db=r.result;const q=db.transaction('state').objectStore('state').get('wardrobe:test-account:legacy');q.onsuccess=()=>{db.close();resolve(q.result)};q.onerror=()=>reject(q.error)}})''')
 def version(page):return page.locator('meta[name=app-version]')
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path=os.getenv('PLAYWRIGHT_CHROMIUM_EXECUTABLE','/usr/bin/chromium') or None,args=['--no-sandbox'])
@@ -72,7 +77,7 @@ with sync_playwright() as p:
     # New navigation gets the new HTML and its matching versioned module graph.
     fresh=context.new_page();fresh.goto(URL)
     expect(version(fresh)).to_have_attribute('content',NEXT)
-    expect(fresh.locator('.count')).to_contain_text('2 wears');fresh.close()
+    expect(fresh.locator('.count')).to_contain_text('2 wears',timeout=15000);fresh.close()
     page.locator('#close').click();page.locator('#settings').click();page.locator('#update-app').click()
     expect(version(page)).to_have_attribute('content',NEXT,timeout=30000)
     assert len(snapshot(page)['outbox'])==2

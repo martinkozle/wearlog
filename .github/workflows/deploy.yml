@@ -17,6 +17,7 @@ jobs:
       WEARLOG_HOSTNAME: ${{ vars.WEARLOG_HOSTNAME }}
       WEARLOG_R2_BUCKET: ${{ vars.WEARLOG_R2_BUCKET }}
       WEARLOG_ACCESS_ISSUER: ${{ vars.WEARLOG_ACCESS_ISSUER }}
+      WEARLOG_LEGACY_MEMBERS: ${{ vars.WEARLOG_LEGACY_MEMBERS }}
       WEARLOG_ACCESS_AUD: ${{ vars.WEARLOG_ACCESS_AUD }}
     steps:
       - uses: actions/checkout@v4
