@@ -91,7 +91,7 @@ export async function manageWardrobes({db, request, url, user, json, problem, re
       ORDER BY email
     `).bind(wardrobe, wardrobe, user.email).all();
     if (!results.length) throw problem(404, 'Wardrobe unavailable');
-    return json({members: results.map(({email}) => ({name: displayName(email), you: email === user.email}))});
+    return json({members: results.map(({email}) => ({email, name: displayName(email), you: email === user.email}))});
   }
 
   if (action === 'invite' && request.method === 'POST') {
