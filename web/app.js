@@ -104,42 +104,108 @@ async function sync() {
  }catch(e){syncError=e.message==='AUTH_REQUIRED'?'Sign in to sync; changes are saved':e instanceof TypeError||e.name==='TimeoutError'?'Connection unavailable; changes stay on this phone':e.message;}
  finally{busy=false;renderStatus();scheduleSync(syncError?retryDelay:30000);if(syncError)retryDelay=Math.min(retryDelay*2,30000);}
 }
-function dialog(title,content,buttons,onSubmit){$('dialog').onpaste=null;$('dialog-title').textContent=title;$('dialog-content').innerHTML=content;$('dialog-actions').innerHTML=buttons;$('form-error').textContent='';$('form').onsubmit=async e=>{e.preventDefault();const submit=$('form').querySelector('[type=submit]');if(submit)submit.disabled=true;try{await onSubmit();}catch(err){$('form-error').textContent=err.message;}finally{if(submit)submit.disabled=false;}};$('dialog').showModal();}
+function dialog(title,content,buttons,onSubmit){$('dialog').onpaste=null;$('dialog').onclose=null;$('dialog').oncancel=null;$('dialog-title').textContent=title;$('dialog-content').innerHTML=content;$('dialog-actions').innerHTML=buttons;$('form-error').textContent='';$('form').onsubmit=async e=>{e.preventDefault();const submit=$('form').querySelector('[type=submit]');if(submit)submit.disabled=true;try{await onSubmit();}catch(err){$('form-error').textContent=err.message;}finally{if(submit)submit.disabled=submit.dataset.unavailable==='true';}};$('dialog').showModal();}
 const saveButton = text => `<button type="submit" class="primary">${text}</button>`;
 function addDialog(){
  const groups=[...new Set(project(state.records).map(g=>g.group))].sort();
  const preferred=$('filter').value||state.lastGroup||groups[0];
  const selected=groups.indexOf(preferred);
  const options=groups.map((g,i)=>`<option value="${i}" ${i===selected?'selected':''}>${esc(g)}</option>`).join('');
- dialog('Add garment',`<div id="upload-area" class="upload-area">${shirtIcon}<span>Choose or paste a photo</span></div><canvas class="crop" id="crop" width="640" height="640" aria-label="Drag to crop garment photo" hidden></canvas><input id="photo" type="file" accept="image/*" aria-label="Garment photo" hidden><div class="photo-controls"><button type="button" class="secondary" id="choose-photo">Choose photo</button><button type="button" class="secondary" id="paste-photo">Paste image</button></div><p id="photo-hint" class="hint">You can also paste a copied image into this window.</p><label id="zoom-label" class="crop-label" hidden>Drag to reposition · zoom<input id="zoom" type="range" min="1" max="3" step="0.01" value="1"></label><label>Wash group<select id="group-select">${options}<option value="new" ${groups.length?'':'selected'}>New group…</option></select></label><label id="new-group-label" ${groups.length?'hidden':''}>New group name<input id="group" maxlength="80" placeholder="e.g. Merino" ${groups.length?'':'required'} autocomplete="off"></label><label>Name <span class="optional">optional</span><input id="name" maxlength="120" autocomplete="off"></label>`,saveButton('Add garment'),async()=>{
-  if(!image)throw new Error('Choose or paste a photo first.');
-  const group=$('group-select').value==='new'?$('group').value.trim():groups[Number($('group-select').value)];
-  if(!group)throw new Error('Enter a wash group.');
-  const photo=canvas.toDataURL('image/jpeg',0.82);
-  await add([record('garment',{name:$('name').value.trim(),group,photo,photoHash:await photoHash(jpegBytes(photo))})]);
-  $('dialog').close();notify('Garment added');
- });
- let image=null,scale=1,x=0,y=0,dragging=null;
- const canvas=$('crop'),ctx=canvas.getContext('2d');
+ dialog('Add garment',`
+  <div id="batch-progress" class="batch-progress" hidden><div><span id="batch-position"></span><span id="batch-added"></span></div><progress id="batch-meter" aria-label="Photos processed" value="0" max="1"></progress></div>
+  <button type="button" id="upload-area" class="upload-area" aria-label="Choose photos">${shirtIcon}<span id="upload-label">Choose or paste a photo</span></button>
+  <canvas class="crop" id="crop" width="640" height="640" aria-label="Drag to crop garment photo" hidden></canvas>
+  <input id="photo" type="file" accept="image/*" multiple aria-label="Garment photos" hidden>
+  <input id="replacement-photo" type="file" accept="image/*" aria-label="Replacement photo" hidden>
+  <div class="photo-controls"><button type="button" class="secondary" id="choose-photo">Choose photos</button><button type="button" class="secondary" id="paste-photo">Paste image</button></div>
+  <label id="zoom-label" class="crop-label" hidden>Drag to reposition · zoom<input id="zoom" type="range" min="1" max="3" step="0.01" value="1"></label>
+  <label>Wash group<select id="group-select">${options}<option value="new" ${groups.length?'':'selected'}>New group…</option></select></label>
+  <label id="new-group-label" ${groups.length?'hidden':''}>New group name<input id="group" maxlength="80" placeholder="e.g. Merino" ${groups.length?'':'required'} autocomplete="off"></label>
+  <button type="button" id="add-name" class="quiet add-name" hidden>Add a name</button>
+  <label id="name-label">Name <span class="optional">optional</span><input id="name" maxlength="120" autocomplete="off"></label>`,
+  '<button type="button" class="secondary" id="skip-photo" hidden>Skip photo</button>'+saveButton('Add garment'),async()=>{
+   if(loading||saving||!image)throw new Error('Choose or paste a photo first.');
+   const group=$('group-select').value==='new'?$('group').value.trim():groups[Number($('group-select').value)];
+   if(!group)throw new Error('Enter a wash group.');
+   saving=true;refresh();
+   try{
+    const photo=canvas.toDataURL('image/jpeg',0.82);
+    await add([record('garment',{name:$('name').value.trim(),group,photo,photoHash:await photoHash(jpegBytes(photo))})]);
+    added++;
+    if(!groups.includes(group)){
+     groups.push(group);
+     $('group-select').add(new Option(group,String(groups.length-1)),$('group-select').options.length-1);
+    }
+    $('group-select').value=String(groups.indexOf(group));
+    $('new-group-label').hidden=true;$('group').required=false;
+    await advance();
+   }finally{saving=false;if(alive)refresh();}
+  });
+ let image=null,scale=1,x=0,y=0,dragging=null,files=[],position=0,added=0,loading=false,saving=false,version=0,alive=true,nameVisible=false;
+ const canvas=$('crop'),ctx=canvas.getContext('2d'),submit=$('form').querySelector('[type=submit]');
+ function refresh(){
+  const batch=files.length>1;
+  $('dialog-title').textContent=batch?'Add garments':'Add garment';
+  $('batch-progress').hidden=!batch;
+  $('batch-position').textContent=`Photo ${position+1} of ${files.length}`;
+  $('batch-added').textContent=`${added} added`;
+  $('batch-meter').max=files.length||1;$('batch-meter').value=position;
+  submit.textContent=batch?(position<files.length-1?'Save & next':'Save last'):'Add garment';
+  submit.dataset.unavailable=String(loading||saving||!image);submit.disabled=loading||saving||!image;
+  $('skip-photo').hidden=!batch;$('skip-photo').disabled=loading||saving;
+  $('choose-photo').textContent=image?(batch?'Replace photo':'Change photo'):'Choose photos';
+  for(const id of ['choose-photo','paste-photo','upload-area','group-select','group','name','zoom','add-name'])$(id).disabled=loading||saving;
+  $('close').disabled=saving;
+  $('name-label').hidden=batch&&!nameVisible;
+  $('add-name').hidden=!batch||nameVisible;
+ }
  function draw(){if(!image)return;scale=Math.max(640/image.width,640/image.height)*Number($('zoom').value);x=Math.max(640-image.width*scale,Math.min(0,x));y=Math.max(640-image.height*scale,Math.min(0,y));ctx.fillStyle='#fff';ctx.fillRect(0,0,640,640);ctx.drawImage(image,x,y,image.width*scale,image.height*scale);}
  async function loadPhoto(file){
-  if(!file)return;
+  if(!file||!alive)return;
+  const current=++version;
+  loading=true;image?.close();image=null;canvas.hidden=true;$('upload-area').hidden=false;$('upload-label').textContent='Opening photo…';$('zoom-label').hidden=true;$('form-error').textContent='';refresh();
   try{
    const next=await createImageBitmap(file);
-   image?.close();image=next;
-   $('zoom').value=1;scale=Math.max(640/image.width,640/image.height);x=(640-image.width*scale)/2;y=(640-image.height*scale)/2;
-   canvas.hidden=false;$('upload-area').hidden=true;$('zoom-label').hidden=false;
-   $('choose-photo').textContent='Change photo';$('form-error').textContent='';draw();
-  }catch{$('form-error').textContent='Could not open this image. Try JPEG or PNG.';}
+   if(!alive||version!==current){next.close();return;}
+   image=next;$('zoom').value=1;
+   scale=Math.max(640/image.width,640/image.height);x=(640-image.width*scale)/2;y=(640-image.height*scale)/2;
+   canvas.hidden=false;$('upload-area').hidden=true;$('zoom-label').hidden=false;draw();
+  }catch{
+   if(alive&&version===current){$('upload-label').textContent='Choose another photo';$('form-error').textContent='Could not open this image. Choose another photo or skip it.';}
+  }finally{if(alive&&version===current){loading=false;refresh();}}
  }
+ async function advance(){
+  files[position]=null;
+  if(position<files.length-1){position++;$('name').value='';nameVisible=false;await loadPhoto(files[position]);$('dialog-content').scrollTop=0;if(image)submit.focus({preventScroll:true});}
+  else{$('dialog').close();notify(added?added===1?'Garment added':`${added} garments added`:'No garments added');}
+ }
+ async function acceptPhotos(list){
+  if(saving||loading||!alive)return;
+  const incoming=Array.from(list);if(!incoming.length)return;
+  files=incoming;position=0;added=0;nameVisible=false;
+  await loadPhoto(files[0]);
+ }
+ async function replacePhoto(file){
+  if(!file||saving||loading||!alive)return;
+  if(!files.length)return acceptPhotos([file]);
+  files[position]=file;await loadPhoto(file);
+ }
+ function choosePhoto(){if(files.length>1)$('replacement-photo').click();else $('photo').click();}
  $('group-select').onchange=()=>{const creating=$('group-select').value==='new';$('new-group-label').hidden=!creating;$('group').required=creating;if(creating)$('group').focus();};
- $('choose-photo').onclick=()=>$('photo').click();
- $('photo').onchange=()=>void loadPhoto($('photo').files[0]);
- $('dialog').onpaste=e=>{const imageItem=[...e.clipboardData.items].find(item=>item.type.startsWith('image/'));if(imageItem){e.preventDefault();void loadPhoto(imageItem.getAsFile());}};
+ $('upload-area').onclick=choosePhoto;
+ $('choose-photo').onclick=choosePhoto;
+ $('photo').onchange=()=>{const incoming=Array.from($('photo').files);$('photo').value='';void acceptPhotos(incoming);};
+ $('replacement-photo').onchange=()=>{const file=$('replacement-photo').files[0];$('replacement-photo').value='';void replacePhoto(file);};
+ $('skip-photo').onclick=async()=>{if(!loading&&!saving)await advance();};
+ $('add-name').onclick=()=>{nameVisible=true;refresh();$('name').focus();};
+ $('dialog').onpaste=e=>{const item=[...e.clipboardData.items].find(item=>item.type.startsWith('image/'));if(item){e.preventDefault();void replacePhoto(item.getAsFile());}};
  $('paste-photo').hidden=!navigator.clipboard?.read;
- $('paste-photo').onclick=async()=>{try{const items=await navigator.clipboard.read();for(const item of items){const type=item.types.find(t=>t.startsWith('image/'));if(type){await loadPhoto(await item.getType(type));return;}}$('form-error').textContent='Copy an image first, then paste it here.';}catch{$('form-error').textContent='Allow clipboard access, paste directly, or choose a photo.';}};
+ $('paste-photo').onclick=async()=>{try{const items=await navigator.clipboard.read();for(const item of items){const type=item.types.find(t=>t.startsWith('image/'));if(type){await replacePhoto(await item.getType(type));return;}}if(alive)$('form-error').textContent='Copy an image first, then paste it here.';}catch{if(alive)$('form-error').textContent='Allow clipboard access, paste directly, or choose a photo.';}};
+ $('dialog').oncancel=e=>{if(saving)e.preventDefault();};
+ $('dialog').onclose=()=>{alive=false;version++;image?.close();files=[];$('close').disabled=false;};
  $('zoom').oninput=()=>{if(!image)return;const old=scale,newScale=Math.max(640/image.width,640/image.height)*Number($('zoom').value);x=320-(320-x)*newScale/old;y=320-(320-y)*newScale/old;draw();};
- canvas.onpointerdown=e=>{dragging={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!dragging)return;const factor=640/canvas.getBoundingClientRect().width;x+=(e.clientX-dragging.x)*factor;y+=(e.clientY-dragging.y)*factor;dragging={x:e.clientX,y:e.clientY};draw();};canvas.onpointerup=canvas.onpointercancel=()=>dragging=null;
+ canvas.onpointerdown=e=>{dragging={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!dragging||loading||saving)return;const factor=640/canvas.getBoundingClientRect().width;x+=(e.clientX-dragging.x)*factor;y+=(e.clientY-dragging.y)*factor;dragging={x:e.clientX,y:e.clientY};draw();};canvas.onpointerup=canvas.onpointercancel=()=>dragging=null;
+ refresh();
 }
 function detailDialog(id){const g=project(state.records).find(g=>g.id===id);const washes=state.records.filter(r=>r.type==='wash'&&r.wearIds.some(i=>g.history.some(w=>w.id===i)));const undone=new Set(state.records.filter(r=>r.type==='undo').flatMap(r=>r.eventIds));const history=[...g.history,...washes.filter(r=>!undone.has(r.id))].sort((a,b)=>b.recordedAt.localeCompare(a.recordedAt));
  dialog(g.name||g.group,`<div class="detail-summary">${g.photo?`<img class="detail-photo" src="${esc(g.photo)}" alt="">`:''}<div><span class="count">${g.count} <small>${g.count===1?'wear':'wears'}</small></span><p class="hint">Since washing · ${esc(g.group)}</p></div></div><label>Number of wears<input id="quantity" type="number" min="1" max="999" value="1" required></label><label>Wear date (optional)<input id="worn-on" type="date"></label><p class="hint">Leave the date blank for past wears with an unknown date. We always keep the time you logged them.</p><h3 class="section-title">History</h3><ul class="history">${history.map(r=>`<li><span>${r.type==='wash'?'Washed':`+${r.quantity} ${r.quantity===1?'wear':'wears'} · ${esc(r.wornOn||'date unknown')}`}<small>Logged ${esc(dateLabel(r.recordedAt))}</small></span><button type="button" class="quiet" data-undo="${esc(r.id)}">Undo</button></li>`).join('')||'<li>No wears logged yet.</li>'}</ul>`,saveButton('Add past wears')+'<button type="button" class="secondary" id="single-wash">Wash this</button>',async()=>{const r=record('wear',{garmentId:id,quantity:Number($('quantity').value),wornOn:$('worn-on').value||null});await add([r]);$('dialog').close();notify('Wears saved',[r.id]);});

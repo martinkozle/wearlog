@@ -29,6 +29,10 @@ with sync_playwright() as p:
     assert page.locator('footer').count()==0
     assert 'remembered' not in page.locator('body').inner_text()
     page.locator('#add').click()
+    assert page.locator('#photo-hint').count()==0
+    with page.expect_file_chooser() as chooser:
+        page.locator('#upload-area').click()
+    assert chooser.value.is_multiple
     photo=page.evaluate('''() => {const c=document.createElement('canvas');c.width=300;c.height=450;const x=c.getContext('2d');x.fillStyle='#708273';x.fillRect(0,0,300,450);x.fillStyle='#e9e4d4';x.fillRect(70,80,160,240);return c.toDataURL('image/png').split(',')[1];}''')
     page.locator('#photo').set_input_files({'name':'shirt.png','mimeType':'image/png','buffer':base64.b64decode(photo)})
     expect(page.locator('#crop')).to_be_visible()
@@ -113,9 +117,60 @@ with sync_playwright() as p:
     fresh.screenshot(path='/tmp/wearlog-desktop-v3.png',full_page=True)
     page.locator('#add').click()
     page.screenshot(path='/tmp/wearlog-add-v3.png',full_page=True)
+    page.locator('#close').click()
+    # Crop a gallery batch, reuse the group, skip a bad selection, and finish unnamed.
+    context.set_offline(True)
+    page.locator('#add').click()
+    image_file={'name':'shirt.png','mimeType':'image/png','buffer':base64.b64decode(photo)}
+    page.locator('#photo').set_input_files([image_file,image_file,image_file])
+    expect(page.locator('#batch-position')).to_have_text('Photo 1 of 3')
+    expect(page.locator('#crop')).to_be_visible()
+    expect(page.locator('#name-label')).to_be_hidden()
+    expect(page.locator('#group-select')).to_have_value('0')
+    page.locator('#zoom').fill('1.5')
+    page.locator('#dialog').get_by_role('button',name='Save & next',exact=True).click()
+    expect(page.locator('#batch-position')).to_have_text('Photo 2 of 3')
+    expect(page.locator('#batch-added')).to_have_text('1 added')
+    expect(page.locator('#zoom')).to_have_value('1')
+    expect(page.locator('.card')).to_have_count(3)
+    page.locator('#skip-photo').click()
+    expect(page.locator('#batch-position')).to_have_text('Photo 3 of 3')
+    expect(page.locator('#crop')).to_be_visible()
+    page.locator('#dialog').get_by_role('button',name='Save last',exact=True).click()
+    expect(page.locator('#dialog')).not_to_be_visible()
+    expect(page.locator('.card')).to_have_count(4)
+    assert page.locator('.card h3').count()==1
+    # An unreadable next photo cannot accidentally save the previous crop twice.
+    page.locator('#add').click()
+    bad={'name':'bad.png','mimeType':'image/png','buffer':b'not an image'}
+    page.locator('#photo').set_input_files([image_file,bad,image_file])
+    expect(page.locator('#crop')).to_be_visible()
+    page.locator('#dialog').get_by_role('button',name='Save & next',exact=True).click()
+    expect(page.locator('#form-error')).to_contain_text('Could not open')
+    expect(page.locator('#dialog button[type=submit]')).to_be_disabled()
+    page.locator('#skip-photo').click()
+    expect(page.locator('#batch-position')).to_have_text('Photo 3 of 3')
+    expect(page.locator('#crop')).to_be_visible()
+    # Close midway: completed items survive reload; the unsaved crop is discarded.
+    page.locator('#close').click()
+    page.reload()
+    expect(page.locator('.card')).to_have_count(5)
+    context.set_offline(False);saved(page)
+    page.evaluate('window.scrollTo(0,400)')
+    assert abs(page.locator('.app-header').bounding_box()['y'])<1
+    page.locator('#settings').click()
+    expect(page.locator('#dialog-title')).to_have_text('Settings')
+    page.locator('#close').click()
+    page.evaluate('window.scrollTo(0,0)')
+    page.locator('#add').click()
+    page.locator('#photo').set_input_files([image_file,image_file])
+    expect(page.locator('#crop')).to_be_visible()
+    page.screenshot(path='/tmp/wearlog-batch-v4.png',full_page=True)
+    page.locator('#close').click()
+    page.screenshot(path='/tmp/wearlog-header-v4.png',full_page=True)
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     assert context.request.post('http://localhost:8765/api/sync',data={'records':[]},headers={'Origin':'https://evil.example'}).status==403
     assert context.request.post('http://localhost:8765/api/sync',data='bad').status==415
-    print('PASS: cropped photo, pasted image, group picker, optional name, 16px inputs, offline reload, wash/undo, automatic retry, session recovery, cross-device polling and mobile layout')
+    print('PASS: gallery batch save/skip, invalid-photo recovery, partial-batch persistence, clickable picker, sticky header;  cropped photo, pasted image, group picker, optional name, 16px inputs, offline reload, wash/undo, automatic retry, session recovery, cross-device polling and mobile layout')
     browser.close()

@@ -9,7 +9,8 @@
     "types": "cf workers types",
     "test": "node --test tests/model.test.js tests/worker.test.js",
     "test:browser": "python tests/browser_check.py",
-    "db:local": "cf d1 migrations apply 00000000-0000-4000-8000-000000000001 --local --mode development --dir migrations"
+    "db:local": "cf d1 migrations apply 00000000-0000-4000-8000-000000000001 --local --mode development --dir migrations",
+    "screenshots": "python scripts/screenshots.py"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "2.0.0-rc.1",
@@ -24,5 +25,6 @@
   },
   "engines": {
     "node": ">=22.18"
-  }
+  },
+  "description": "Photo-first garment wear and wash tracking with offline logging and automatic sync."
 }
