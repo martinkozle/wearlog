@@ -31,3 +31,12 @@ html,button,.upload-area,.photo-picker-label{touch-action:manipulation}
 #dialog-content .photo-picker-label{display:grid;place-items:center;flex:1;margin:0;min-height:44px;padding:11px 16px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-weight:600;cursor:pointer}
 #dialog-content label[aria-disabled=true]{opacity:.5;cursor:wait}
 #dialog-content:has(input[type=file]:focus-visible) #choose-photo{outline:3px solid #81ad99;outline-offset:3px}
+
+.controls{justify-content:flex-start}
+.controls #wash{margin-left:auto;flex-shrink:0}
+.garment-sort select{width:100%}
+@media(max-width:600px){
+ .controls .group-filter,.controls .garment-sort{flex:1;min-width:0}
+ .controls select{font-size:16px;padding-inline:8px}
+}
+@media(max-width:370px){.controls{flex-wrap:wrap}.controls #wash{margin-left:0;width:100%}}

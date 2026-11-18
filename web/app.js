@@ -1,7 +1,7 @@
-import qrcode from './qrcode.js?v=2026.11.18.8';
-import {createUpdater} from './updates.js?v=2026.11.18.8';
-import {project} from './model.js?v=2026.11.18.8';
-import {validateRecord, photoHash, normalizeInviteCode} from './schema.js?v=2026.11.18.8';
+import qrcode from './qrcode.js?v=2026.11.18.9';
+import {createUpdater} from './updates.js?v=2026.11.18.9';
+import {project, sortGarments} from './model.js?v=2026.11.18.9';
+import {validateRecord, photoHash, normalizeInviteCode} from './schema.js?v=2026.11.18.9';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = s => new Date(s).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -152,10 +152,12 @@ function render() {
  filter=$('filter').value;
  const worn=garments.filter(g=>g.count>0).length;
  $('total').textContent=garments.length?`${garments.length} ${garments.length===1?'garment':'garments'} · ${worn} worn`:'Add your clothes to get started';
- const nextKey=JSON.stringify([filter,garments.map(g=>[g.id,g.name,g.group,g.count,g.history.at(-1)?.id,Boolean(g.photo)])]);
+ const sort = $('sort');
+ sort.value = state.sort || 'oldest';
+ const shown = sortGarments(garments.filter(g => !filter || g.group === filter), sort.value);
+ const nextKey=JSON.stringify([filter,shown.map(g=>[g.id,g.name,g.group,g.count,g.history.at(-1)?.id,Boolean(g.photo)])]);
  if(gridKey===nextKey)return;
  gridKey=nextKey;
- const shown=garments.filter(g=>!filter||g.group===filter);
  $('grid').innerHTML=shown.length?shown.map(g=>{
   const last=g.history.at(-1),label=g.name||`${g.group} garment`;
   return `<article class="card"><button class="photo-button" data-detail="${esc(g.id)}" aria-label="History for ${esc(label)}">${g.photo?`<img src="${esc(g.photo)}" alt="${esc(label)}">`:`<span class="photo-placeholder">${shirtIcon}</span>`}</button><div class="card-body"><div class="card-meta"><span class="count">${g.count} <small>${g.count===1?'wear':'wears'}</small></span><span class="group-name">${esc(g.group)}</span></div>${g.name?`<h3>${esc(g.name)}</h3>`:''}<p class="last">${last?`Logged ${esc(dateLabel(last.recordedAt))}`:'Not worn since washing'}</p><button class="wear" data-wear="${esc(g.id)}">+1 Wear now</button></div></article>`;
@@ -555,7 +557,7 @@ function enterInvite() {
     return;
    }
    stream = camera;
-   const {default: decode} = await import('./qr-decoder.js?v=2026.11.18.8');
+   const {default: decode} = await import('./qr-decoder.js?v=2026.11.18.9');
    if (generation !== session) return;
    video.srcObject = stream;
    video.hidden = false;
@@ -769,7 +771,17 @@ $('signin').onclick = () => {
  const token = inviteToken();
  location.assign('/auth/resume' + (token ? '?invite=' + encodeURIComponent(token) : ''));
 };
-$('close').onclick=()=>$('dialog').close();$('filter').onchange=render;$('add').onclick=addDialog;$('wash').onclick=()=>washDialog();$('settings').onclick=settingsDialog;
+$('close').onclick=()=>$('dialog').close();$('filter').onchange=render;
+$('sort').onchange = async event => {
+ const order = event.target.value;
+ try {
+  await mutate(saved => { saved.sort = order; });
+ } catch (error) {
+  render();
+  notify('Could not save sort order: ' + error.message);
+ }
+};
+$('add').onclick=addDialog;$('wash').onclick=()=>washDialog();$('settings').onclick=settingsDialog;
 document.addEventListener('visibilitychange',()=>{clearTimeout(syncTimer);if(document.visibilityState==='visible'){void sync();void updater.check();}});window.addEventListener('online',()=>void sync());window.addEventListener('offline',()=>{clearTimeout(syncTimer);syncError='Connection unavailable';renderStatus();});window.addEventListener('focus',()=>{if(!busy)void sync();});
 try {
  db = await new Promise((resolve, reject) => {

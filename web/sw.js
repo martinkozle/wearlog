@@ -1,4 +1,4 @@
-const VERSION='2026.11.18.8';
+const VERSION='2026.11.18.9';
 const CACHE='wearlog-shell-'+VERSION;
 const SHELL=['/','/style.css?v='+VERSION,'/app.js?v='+VERSION,'/updates.js?v='+VERSION,'/qr-decoder.js?v='+VERSION,'/qrcode.js?v='+VERSION,'/model.js?v='+VERSION,'/schema.js?v='+VERSION,'/manifest.webmanifest','/icon.svg','/icon.png'];
 function valid(response,path){
