@@ -33,10 +33,13 @@ html,button,.upload-area,.photo-picker-label{touch-action:manipulation}
 #dialog-content:has(input[type=file]:focus-visible) #choose-photo{outline:3px solid #81ad99;outline-offset:3px}
 
 .controls{justify-content:flex-start}
-.controls #wash{margin-left:auto;flex-shrink:0}
-.garment-sort select{width:100%}
+.controls #wash{display:inline-flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
+.controls svg{width:20px;height:20px;flex:none}
+.garment-sort{position:relative;display:grid;place-items:center;flex:0 0 44px;height:44px;border:1px solid var(--border);border-radius:9px}
+.garment-sort:has(select:focus-visible){outline:3px solid #81ad99;outline-offset:3px}
+.garment-sort select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 @media(max-width:600px){
- .controls .group-filter,.controls .garment-sort{flex:1;min-width:0}
+ .controls .group-filter{flex:1;min-width:0}
  .controls select{font-size:16px;padding-inline:8px}
+ .controls #wash{padding-inline:10px}
 }
-@media(max-width:370px){.controls{flex-wrap:wrap}.controls #wash{margin-left:0;width:100%}}

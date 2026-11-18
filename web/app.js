@@ -1,7 +1,7 @@
-import qrcode from './qrcode.js?v=2026.11.18.9';
-import {createUpdater} from './updates.js?v=2026.11.18.9';
-import {project, sortGarments} from './model.js?v=2026.11.18.9';
-import {validateRecord, photoHash, normalizeInviteCode} from './schema.js?v=2026.11.18.9';
+import qrcode from './qrcode.js?v=2026.11.18.10';
+import {createUpdater} from './updates.js?v=2026.11.18.10';
+import {project, sortGarments} from './model.js?v=2026.11.18.10';
+import {validateRecord, photoHash, normalizeInviteCode} from './schema.js?v=2026.11.18.10';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = s => new Date(s).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -557,7 +557,7 @@ function enterInvite() {
     return;
    }
    stream = camera;
-   const {default: decode} = await import('./qr-decoder.js?v=2026.11.18.9');
+   const {default: decode} = await import('./qr-decoder.js?v=2026.11.18.10');
    if (generation !== session) return;
    video.srcObject = stream;
    video.hidden = false;
