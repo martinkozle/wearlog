@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="app-version" content="2026.11.18.9">
+  <meta name="app-version" content="2026.11.18.10">
   <meta name="theme-color" content="#f7f8fa">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=2026.11.18.9">
+  <link rel="stylesheet" href="/style.css?v=2026.11.18.10">
   <title>Wearlog</title>
 <!-- Settings icon from Lucide.
 ISC License
@@ -67,14 +67,19 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <section id="wardrobe-content" aria-label="Active wardrobe" hidden>
     <div class="page-heading"><div><h1 id="wardrobe-title">Wardrobe</h1><p id="total" class="muted"></p></div><button id="add" class="primary"><span aria-hidden="true">+</span> Add garment</button></div>
     <div class="controls"><label class="group-filter"><span class="sr-only">Wash group</span><select id="filter" aria-label="Wash group"><option value="">All groups</option></select></label>
-      <label class="garment-sort"><span class="sr-only">Sort garments</span><select id="sort">
+      <label class="garment-sort secondary" title="Sort garments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 11h7M4 16h4m12-10v12m-3-3 3 3 3-3"/></svg>
+        <span class="sr-only">Sort garments</span><select id="sort">
         <option value="oldest">Oldest added</option>
         <option value="newest">Newest added</option>
         <option value="least">Least worn</option>
         <option value="most">Most worn</option>
         <option value="name">Name A–Z</option>
       </select></label>
-      <button id="wash" class="secondary">Wash a load</button></div>
+      <button id="wash" class="secondary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16M8 5.5h1"/><circle cx="12" cy="14.5" r="3.5"/><path d="M9 15c2-2 4 2 6 0"/></svg>
+        Wash a load
+      </button></div>
     <section id="grid" class="grid" aria-label="Garments"></section>
     </section>
   </main>
@@ -97,6 +102,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     </form>
   </dialog>
   <div id="toast" role="status" hidden></div>
-  <script type="module" src="/app.js?v=2026.11.18.9"></script>
+  <script type="module" src="/app.js?v=2026.11.18.10"></script>
 </body>
 </html>
