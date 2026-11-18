@@ -12,3 +12,22 @@ export function project(records) {
 export function merge(remote, local) {
   return [...new Map([...remote, ...local].map(r => [r.id, r])).values()];
 }
+
+const garmentNames = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+
+export function sortGarments(garments, order) {
+  const oldest = (a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
+  const namedFirst = (a, b) => {
+    const left = a.name.trim();
+    const right = b.name.trim();
+    return Number(!left) - Number(!right) || garmentNames.compare(left, right);
+  };
+  const compare = {
+    newest: (a, b) => oldest(b, a),
+    least: (a, b) => a.count - b.count,
+    most: (a, b) => b.count - a.count,
+    name: namedFirst
+  };
+  const primary = Object.hasOwn(compare, order) ? compare[order] : oldest;
+  return [...garments].sort((a, b) => primary(a, b) || oldest(a, b) || a.id.localeCompare(b.id));
+}

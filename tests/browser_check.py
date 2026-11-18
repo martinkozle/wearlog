@@ -67,6 +67,13 @@ with sync_playwright() as p:
     first=page.locator('.card').first
     first.get_by_role('button',name='+1 Wear now',exact=True).click(); saved(page)
     expect(first.locator('.count')).to_contain_text('1 wear')
+    page.locator('#sort').select_option('least')
+    expect(first.locator('.count')).to_contain_text('0 wears')
+    page.reload()
+    expect(page.locator('#sort')).to_have_value('least')
+    expect(first.locator('.count')).to_contain_text('0 wears')
+    page.locator('#sort').select_option('oldest')
+    expect(first.locator('.count')).to_contain_text('1 wear')
     context.set_offline(True)
     first.get_by_role('button',name='+1 Wear now',exact=True).click()
     expect(first.locator('.count')).to_contain_text('2 wears')
