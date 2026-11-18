@@ -1,0 +1,31 @@
+name: Deploy
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wearlog-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WEARLOG_D1_ID: ${{ vars.WEARLOG_D1_ID }}
+      WEARLOG_R2_BUCKET: ${{ vars.WEARLOG_R2_BUCKET }}
+      WEARLOG_ACCESS_ISSUER: ${{ vars.WEARLOG_ACCESS_ISSUER }}
+      WEARLOG_ACCESS_AUD: ${{ vars.WEARLOG_ACCESS_AUD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$WEARLOG_D1_ID" && test -n "$WEARLOG_ACCESS_ISSUER" && test -n "$WEARLOG_ACCESS_AUD"
+      - run: npm run build
+      - run: npm test
+      - run: npx cf d1 migrations apply "$WEARLOG_D1_ID" --dir migrations
+      - run: npx cf deploy --prebuilt

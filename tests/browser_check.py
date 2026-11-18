@@ -5,7 +5,7 @@ import json
 import os, subprocess, tempfile, atexit, time, urllib.request
 sandbox = tempfile.TemporaryDirectory()
 atexit.register(sandbox.cleanup)
-process = subprocess.Popen([__import__('sys').executable, 'server.py'], cwd=Path(__file__).resolve().parents[1], env={**os.environ, 'PORT':'8765','WEARLOG_DB':sandbox.name+'/wardrobe.sqlite3','WEARLOG_TOKEN':''}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+process = subprocess.Popen(['node', 'scripts/test-runtime.mjs'], cwd=Path(__file__).resolve().parents[1], env={**os.environ, 'PORT':'8765','TEST_STATE':sandbox.name}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 atexit.register(process.terminate)
 for attempt in range(50):
     try:
@@ -16,7 +16,7 @@ else:
     raise RuntimeError('Test server did not start')
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
+    browser = p.chromium.launch(executable_path=os.environ.get('PLAYWRIGHT_CHROMIUM_EXECUTABLE', '/usr/bin/chromium') or None, args=['--no-sandbox'])
     context = browser.new_context(viewport={'width':390,'height':844}, is_mobile=True, has_touch=True, service_workers='allow')
     page = context.new_page()
     errors=[]
@@ -56,15 +56,24 @@ with sync_playwright() as p:
     context.set_offline(False)
     page.locator('#sync').click()
     expect(page.locator('#status')).to_contain_text('All changes synced')
+    # Session expiry leaves pending events intact and presents a sign-in action.
+    page.route('**/api/sync',lambda route:route.fulfill(status=401,content_type='application/json',body='{"error":"Sign in to sync"}'))
+    page.get_by_role('button',name='+1 Wear now',exact=True).click()
+    expect(page.locator('#signin')).to_be_visible()
+    expect(page.locator('#status')).to_contain_text('1 pending')
+    page.unroute('**/api/sync')
+    page.locator('#sync').click()
+    expect(page.locator('#status')).to_contain_text('All changes synced')
+    expect(page.locator('#signin')).to_be_hidden()
     page.screenshot(path='/tmp/wearlog-mobile.png',full_page=True)
     # A fresh device receives all records and photos.
     other=browser.new_context()
     fresh=other.new_page();fresh.goto('http://localhost:8765')
-    expect(fresh.locator('.count')).to_contain_text('5 wears')
+    expect(fresh.locator('.count')).to_contain_text('6 wears')
     fresh.screenshot(path='/tmp/wearlog-desktop.png',full_page=True)
     assert not errors, errors
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    print('PASS: photo cropping/upload, wear, offline reload, unknown-date batch, wash, undo, sync, second device, mobile layout; no page errors')
+    print('PASS: crop/upload, offline reload, past wears, wash/undo, expired-session recovery, sync, second device, mobile layout; no page errors')
     assert context.request.post('http://localhost:8765/api/sync',data={'records':[]},headers={'Origin':'https://evil.example'}).status == 403
     assert context.request.post('http://localhost:8765/api/sync',data='bad').status == 415
     browser.close()

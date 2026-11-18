@@ -1,5 +1,9 @@
-data/
-__pycache__/
-.env
 node_modules/
+.cloudflare/
+.dev.vars*
+.env*
+!.env.example
+__pycache__/
 test-results/
+data/
+worker-startup.cpuprofile
